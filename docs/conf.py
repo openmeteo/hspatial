@@ -1,9 +1,16 @@
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.abspath(".."))
 
-import hspatial
+
+def get_version():
+    scriptdir = os.path.dirname(os.path.abspath(__file__))
+    init_py_path = os.path.join(scriptdir, "..", "hspatial", "__init__.py")
+    with open(init_py_path) as f:
+        return re.search(r'^__version__ = "(.*?)"$', f.read(), re.MULTILINE).group(1)
+
 
 extensions = ["sphinx.ext.autodoc", "sphinx.ext.viewcode"]
 templates_path = ["_templates"]
@@ -12,8 +19,8 @@ master_doc = "index"
 project = u"hspatial"
 copyright = u"2019, Antonis Christofides"
 author = u"Antonis Christofides"
-version = hspatial.__version__
-release = hspatial.__version__
+version = get_version()
+release = version
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 pygments_style = "sphinx"
 html_theme = "alabaster"
