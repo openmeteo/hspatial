@@ -599,3 +599,21 @@ class AppTestCase(TestCase):
         # We could check a myriad other things here, but since we've
         # unit-tested lower level functions in detail, the above is reasonably
         # sufficient for us to know that it works.
+
+    def test_no_timezone(self):
+        self._remove_timezone_from_file(self.filenames[0])
+        self._remove_timezone_from_file(self.filenames[1])
+        application = cli.App(self.config_file)
+        self._create_mask_file()
+        self._prepare_config_file(number_of_output_files=3)
+        msg = "{} does not contain Timezone".format(self.filenames[0])
+        with self.assertRaisesRegex(click.ClickException, msg):
+            application.run()
+
+    def _remove_timezone_from_file(self, filename):
+        with open(filename, "r") as f:
+            lines = f.readlines()
+        with open(filename, "w") as f:
+            for line in lines:
+                if not line.startswith("Timezone="):
+                    f.write(line)

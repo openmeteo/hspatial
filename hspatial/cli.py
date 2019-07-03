@@ -70,7 +70,9 @@ class App:
             for line in fp:
                 if line.startswith("Timezone") or (line and line[0] in "0123456789"):
                     break
-        zonestr = line.partition("=")[2].strip() if line.startswith("Timezone") else ""
+        if not line.startswith("Timezone"):
+            raise click.ClickException("{} does not contain Timezone".format(filename))
+        zonestr = line.partition("=")[2].strip()
         timezone = TzinfoFromString(zonestr)
 
         result = []
