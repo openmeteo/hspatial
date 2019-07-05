@@ -10,6 +10,7 @@ from unittest import TestCase
 
 import numpy as np
 import pandas as pd
+from htimeseries import TzinfoFromString
 from osgeo import gdal, ogr, osr
 
 import hspatial
@@ -203,6 +204,7 @@ class HIntegrateTestCase(TestCase):
         ]
         with open(self.filenames[0], "w") as f:
             f.write(
+                "Timezone=EET (UTC+0200)\n"
                 "Location=19.557285 0.0473312 2100\n"  # GGRS87=5000 5000
                 "\n"
                 "2014-04-22 12:50,5.03,\n"
@@ -211,6 +213,7 @@ class HIntegrateTestCase(TestCase):
             )
         with open(self.filenames[1], "w") as f:
             f.write(
+                "Timezone=EET (UTC+0200)\n"
                 "Location=19.64689 0.04734 2100\n"  # GGRS87=15000 5000
                 "\n"
                 "2014-04-22 12:50,2.90,\n"
@@ -219,6 +222,7 @@ class HIntegrateTestCase(TestCase):
             )
         with open(self.filenames[2], "w") as f:
             f.write(
+                "Timezone=EET (UTC+0200)\n"
                 "Location=19.88886 0.12857 2100\n"  # GGRS87=42000 14000
                 "\n"
                 "2014-04-22 12:50,9.70,\n"
@@ -229,6 +233,7 @@ class HIntegrateTestCase(TestCase):
             # This station is missing the date required,
             # so it should not be taken into account
             f.write(
+                "Timezone=EET (UTC+0200)\n"
                 "Location=19.66480 0.15560 2100\n"  # GGRS87=17000 17000
                 "\n"
                 "2014-04-22 12:50,9.70,\n"
@@ -246,11 +251,13 @@ class HIntegrateTestCase(TestCase):
 
     def test_h_integrate(self):
         output_filename_prefix = os.path.join(self.tempdir, "test")
-        result_filename = output_filename_prefix + "-2014-04-22-13-00.tif"
+        result_filename = output_filename_prefix + "-2014-04-22-13-00+0200.tif"
         hspatial.h_integrate(
             mask=self.mask,
             stations_layer=self.stations_layer,
-            date=dt.datetime(2014, 4, 22, 13, 0),
+            date=dt.datetime(
+                2014, 4, 22, 13, 0, tzinfo=TzinfoFromString("EET (+0200)")
+            ),
             output_filename_prefix=output_filename_prefix,
             date_fmt="%Y-%m-%d %H:%M%z",
             funct=hspatial.idw,
@@ -288,7 +295,9 @@ class HIntegrateTestCase(TestCase):
         hspatial.h_integrate(
             mask=self.mask,
             stations_layer=self.stations_layer,
-            date=dt.datetime(2014, 4, 22, 13, 0),
+            date=dt.datetime(
+                2014, 4, 22, 13, 0, tzinfo=TzinfoFromString("EET (+0200)")
+            ),
             output_filename_prefix=output_filename_prefix,
             date_fmt="%Y-%m-%d %H:%M%z",
             funct=hspatial.idw,
@@ -301,6 +310,7 @@ class HIntegrateTestCase(TestCase):
         # the file should be recalculated.
         with open(self.filenames[3], "w") as f:
             f.write(
+                "Timezone=EET (UTC+0200)\n"
                 "Location=19.66480 0.15560 2100\n"  # GGRS87=17000 17000
                 "\n"
                 "2014-04-22 12:50,9.70,\n"
@@ -310,7 +320,9 @@ class HIntegrateTestCase(TestCase):
         hspatial.h_integrate(
             mask=self.mask,
             stations_layer=self.stations_layer,
-            date=dt.datetime(2014, 4, 22, 13, 0),
+            date=dt.datetime(
+                2014, 4, 22, 13, 0, tzinfo=TzinfoFromString("EET (+0200)")
+            ),
             output_filename_prefix=output_filename_prefix,
             date_fmt="%Y-%m-%d %H:%M%z",
             funct=hspatial.idw,

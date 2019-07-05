@@ -121,7 +121,7 @@ def _needs_calculation(output_filename, date, stations_layer):
         with open(filename) as f:
             t = HTimeseries(f)
         try:
-            value = t.data.loc[date, "value"]
+            value = t.data.loc[date.replace(tzinfo=None), "value"]
             if not isnan(value):
                 return True
         except KeyError:
@@ -151,7 +151,7 @@ def h_integrate(
         with open(filename) as f:
             t = HTimeseries(f)
         try:
-            value = t.data.loc[date, "value"]
+            value = t.data.loc[date.replace(tzinfo=None), "value"]
         except KeyError:
             value = np.nan
         station.SetField("value", value)
