@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import click
 from click.testing import CliRunner
+from htimeseries import TzinfoFromString
 from osgeo import gdal, osr
 
 from hspatial import cli
@@ -323,6 +324,39 @@ class ConfigurationTestCase(TestCase):
         self.assertTrue(os.path.exists(logfilename))
 
 
+def _create_test_data(filename1, filename2):
+    with open(filename1, "w") as f:
+        f.write(
+            textwrap.dedent(
+                """\
+                Location=23.78743 37.97385 4326
+                Timezone=+0200
+                Time_step=60,0
+
+                2014-04-30 11:00,18.3,
+                2014-04-30 13:00,20.4,
+                2014-04-30 14:00,21.4,
+                2014-04-30 15:00,22.4,
+                """
+            )
+        )
+    with open(filename2, "w") as f:
+        f.write(
+            textwrap.dedent(
+                """\
+                Location=24.56789 38.76543 4326
+                Timezone=EET (+0200)
+                Time_step=60,0
+
+                2014-04-30 11:00,18.3,
+                2014-04-30 12:00,19.3,
+                2014-04-30 13:00,20.4,
+                2014-04-30 14:00,21.4,
+                """
+            )
+        )
+
+
 class AppTestCase(TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
@@ -330,25 +364,8 @@ class AppTestCase(TestCase):
         self.config_file = os.path.join(self.tempdir, "spatialize.conf")
         os.mkdir(self.output_dir)
         self.mask_file = os.path.join(self.tempdir, "mask.tif")
-
-        # Create two time series
         self.filenames = [os.path.join(self.tempdir, x) for x in ("ts1", "ts2")]
-        with open(self.filenames[0], "w") as f:
-            f.write(
-                "Location=23.78743 37.97385 4326\n"
-                "Timezone=+0200\n"
-                "Time_step=60,0\n"
-                "\n"
-            )
-        with open(self.filenames[1], "w") as f:
-            f.write(
-                "Location=24.56789 38.76543 4326\n"
-                "Timezone=EET (+0200)\n"
-                "Time_step=60,0\n"
-                "\n"
-            )
-
-        # Prepare a configuration file
+        _create_test_data(self.filenames[0], self.filenames[1])
         self._prepare_config_file()
 
     def _prepare_config_file(self, number_of_output_files=24):
@@ -388,65 +405,30 @@ class AppTestCase(TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_get_last_dates(self):
-        filename = os.path.join(self.tempdir, "timeseries.hts")
-        with open(filename, "w") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                2014-04-30 11:00,18.3,
-                2014-04-30 12:00,19.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                """
-                )
-            )
         application = cli.App(self.config_file)
-        with open(filename) as f:
-            self.assertEqual(
-                application._get_last_dates(filename, 2),
-                [dt.datetime(2014, 4, 30, 13, 0), dt.datetime(2014, 4, 30, 14, 0)],
-            )
-            f.seek(0)
-            self.assertEqual(
-                application._get_last_dates(filename, 20),
-                [
-                    dt.datetime(2014, 4, 30, 11, 0),
-                    dt.datetime(2014, 4, 30, 12, 0),
-                    dt.datetime(2014, 4, 30, 13, 0),
-                    dt.datetime(2014, 4, 30, 14, 0),
-                ],
-            )
+        tzinfo = TzinfoFromString("+0200")
+        self.assertEqual(
+            application._get_last_dates(self.filenames[0], 2),
+            [
+                dt.datetime(2014, 4, 30, 14, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 15, 0, tzinfo=tzinfo),
+            ],
+        )
+        self.assertEqual(
+            application._get_last_dates(self.filenames[0], 20),
+            [
+                dt.datetime(2014, 4, 30, 11, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 13, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 14, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 15, 0, tzinfo=tzinfo),
+            ],
+        )
 
     @patch("hspatial.cli.App._execute")
     def test_dates_to_calculate(self, *args):
         application = cli.App(self.config_file)
         application.run()
-        with open(self.filenames[0], "w") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                2014-04-30 11:00,18.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                2014-04-30 15:00,22.4,
-                """
-                )
-            )
-        with open(self.filenames[1], "w") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                Time_step=60,0
-                Timestamp_rounding=0,0
-                Timestamp_offset=0,0
-
-                2014-04-30 11:00,18.3,
-                2014-04-30 12:00,19.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                """
-                )
-            )
+        tzinfo = TzinfoFromString("+0200")
 
         # Check for number_of_output_files=24
         dates = []
@@ -455,11 +437,11 @@ class AppTestCase(TestCase):
         self.assertEqual(
             dates,
             [
-                dt.datetime(2014, 4, 30, 11, 0),
-                dt.datetime(2014, 4, 30, 12, 0),
-                dt.datetime(2014, 4, 30, 13, 0),
-                dt.datetime(2014, 4, 30, 14, 0),
-                dt.datetime(2014, 4, 30, 15, 0),
+                dt.datetime(2014, 4, 30, 11, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 12, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 13, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 14, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 15, 0, tzinfo=tzinfo),
             ],
         )
 
@@ -469,7 +451,11 @@ class AppTestCase(TestCase):
         for d in application._dates_to_calculate:
             dates.append(d)
         self.assertEqual(
-            dates, [dt.datetime(2014, 4, 30, 14, 0), dt.datetime(2014, 4, 30, 15, 0)]
+            dates,
+            [
+                dt.datetime(2014, 4, 30, 14, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 15, 0, tzinfo=tzinfo),
+            ],
         )
 
         # Check for number_of_output_files=4
@@ -480,10 +466,10 @@ class AppTestCase(TestCase):
         self.assertEqual(
             dates,
             [
-                dt.datetime(2014, 4, 30, 12, 0),
-                dt.datetime(2014, 4, 30, 13, 0),
-                dt.datetime(2014, 4, 30, 14, 0),
-                dt.datetime(2014, 4, 30, 15, 0),
+                dt.datetime(2014, 4, 30, 12, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 13, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 14, 0, tzinfo=tzinfo),
+                dt.datetime(2014, 4, 30, 15, 0, tzinfo=tzinfo),
             ],
         )
 
@@ -494,62 +480,16 @@ class AppTestCase(TestCase):
             f.write(
                 textwrap.dedent(
                     """\
-                2014-04-30 11:00,18.3,
-                malformed date,20.4,
-                2014-04-30 14:00,21.4,
-                2014-04-30 15:00,22.4,
-                """
-                )
-            )
-        with open(self.filenames[1], "a") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                2014-04-30 11:00,18.3,
-                2014-04-30 12:00,19.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                """
+                    2014-04-30 16:00,23.4,
+                    malformed date,24.4,
+                    2014-04-30 18:00,25.4,
+                    2014-04-30 19:00,25.4,
+                    """
                 )
             )
         msg = (
             r"^Unable to parse date string u?'malformed date' "
             r"\(file " + self.filenames[0] + r", 3 lines from the end\)$"
-        )
-        with self.assertRaisesRegex(click.ClickException, msg):
-            application.run()
-
-    def test_dates_to_calculate_error2(self):
-        self._create_mask_file()
-        application = cli.App(self.config_file)
-        with open(self.filenames[0], "a") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                2014-04-30 11:00,18.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                2014-04-30 15:00,22.4,
-                """
-                )
-            )
-        with open(self.filenames[1], "a") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                Time_step=60,0
-                Timestamp_rounding=0,0
-                Timestamp_offset=0,0
-                2014-04-30 11:00,18.3,
-                2014-04-30 12:00,19.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                """
-                )
-            )
-        msg = (
-            r"^Unable to parse date string u?'Timestamp_offset=0' "
-            r"\(file " + self.filenames[1] + r", 5 lines from the end\)$"
         )
         with self.assertRaisesRegex(click.ClickException, msg):
             application.run()
@@ -637,30 +577,6 @@ class AppTestCase(TestCase):
     def test_run(self):
         application = cli.App(self.config_file)
 
-        # Create some time series data
-        with open(self.filenames[0], "a") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                2014-04-30 11:00,18.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                2014-04-30 15:00,22.4,
-                """
-                )
-            )
-        with open(self.filenames[1], "a") as f:
-            f.write(
-                textwrap.dedent(
-                    """\
-                2014-04-30 11:00,18.3,
-                2014-04-30 12:00,19.3,
-                2014-04-30 13:00,20.4,
-                2014-04-30 14:00,21.4,
-                """
-                )
-            )
-
         # Create a mask
         self._create_mask_file()
 
@@ -683,3 +599,21 @@ class AppTestCase(TestCase):
         # We could check a myriad other things here, but since we've
         # unit-tested lower level functions in detail, the above is reasonably
         # sufficient for us to know that it works.
+
+    def test_no_timezone(self):
+        self._remove_timezone_from_file(self.filenames[0])
+        self._remove_timezone_from_file(self.filenames[1])
+        application = cli.App(self.config_file)
+        self._create_mask_file()
+        self._prepare_config_file(number_of_output_files=3)
+        msg = "{} does not contain Timezone".format(self.filenames[0])
+        with self.assertRaisesRegex(click.ClickException, msg):
+            application.run()
+
+    def _remove_timezone_from_file(self, filename):
+        with open(filename, "r") as f:
+            lines = f.readlines()
+        with open(filename, "w") as f:
+            for line in lines:
+                if not line.startswith("Timezone="):
+                    f.write(line)
