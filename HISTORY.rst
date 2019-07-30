@@ -2,6 +2,12 @@
 History
 =======
 
+0.1.2 (2019-07-30)
+==================
+
+- Fixed a bug where hts files were opened in the wrong mode, with
+  inconsistent results.
+
 0.1.1 (2019-07-05)
 ==================
 
