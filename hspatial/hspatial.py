@@ -66,7 +66,7 @@ def create_ogr_layer_from_timeseries(filenames, epsg, data_source):
     layer = data_source.CreateLayer("stations", target_sr)
     layer.CreateField(ogr.FieldDefn("filename", ogr.OFTString))
     for filename in filenames:
-        with open(filename) as f:
+        with open(filename, newline="\n") as f:
             ts = HTimeseries(f)
         point = ogr.Geometry(ogr.wkbPoint)
         point.AddPoint(ts.location["abscissa"], ts.location["ordinate"])
@@ -118,7 +118,7 @@ def _needs_calculation(output_filename, date, stations_layer):
     # For each one of these files, check whether it has newly available data.
     # Upon finding one that does, the verdict is made: return True
     for filename in unused_files:
-        with open(filename) as f:
+        with open(filename, newline="\n") as f:
             t = HTimeseries(f)
         try:
             value = t.data.loc[date.replace(tzinfo=None), "value"]
@@ -148,7 +148,7 @@ def h_integrate(
     stations_layer.ResetReading()
     for station in stations_layer:
         filename = station.GetField("filename")
-        with open(filename) as f:
+        with open(filename, newline="\n") as f:
             t = HTimeseries(f)
         try:
             value = t.data.loc[date.replace(tzinfo=None), "value"]
