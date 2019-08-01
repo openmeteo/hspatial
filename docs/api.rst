@@ -107,16 +107,23 @@ API
    If the *point* does not fall in the raster, :exc:`RuntimeError` is
    raised.
 
-.. function:: hspatial.extract_point_timeseries_from_rasters(files, point)
+.. function:: hspatial.extract_point_timeseries_from_rasters(files_or_prefix, point)
 
    Extracts and returns a :class:`~timeseries.Timeseries` object that
    corresponds to the values of a specific point in several rasters.
 
-   *files* is a sequence or set of rasters, which should contain the
-   same variable in different times; for example, the rasters can be
-   representing spatial rainfall, each raster at a different time. The
-   ``TIMESTAMP`` GDAL metadata item of each raster must contain the
-   time in ISO 8601 format.
+   *files_or_prefix* is either a string or a sequence or set. If it is a
+   sequence or set, it is filenames of raster files which should contain
+   the same variable in different times; for example, the rasters can be
+   representing spatial rainfall, each raster at a different time.
+
+   If *files_or_prefix* is a string, then it is a prefix. In that case,
+   the function picks up all the files named
+   :samp:`{files_or_prefix}-{d}.tif` (*d* is ignored in this version,
+   but it should be a date).
+
+   In both cases, the ``TIMESTAMP`` GDAL metadata item of each raster
+   must contain the time in ISO 8601 format.
 
    *point* is an OGR point object. It need not be in the same
    reference system as *files*; however, the files must contain

@@ -4,7 +4,6 @@ import os
 import shutil
 import tempfile
 import textwrap
-from glob import glob
 from time import sleep
 from unittest import TestCase
 
@@ -360,111 +359,102 @@ def setup_input_file(filename, value, timestamp):
         f = None
 
 
+def point_from_coordinates(x, y, srid=4326):
+    point = ogr.Geometry(ogr.wkbPoint)
+    sr = osr.SpatialReference()
+    sr.ImportFromEPSG(srid)
+    point.AssignSpatialReference(sr)
+    point.AddPoint(x, y)
+    return point
+
+
 class ExtractPointFromRasterTestCase(TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
+        self._setup_test_raster()
+        self.fp = gdal.Open(self.filename)
 
-    def tearDown(self):
-        shutil.rmtree(self.tempdir)
-
-    def test_extract_point_from_raster(self):
-        filename = os.path.join(self.tempdir, "test_raster")
+    def _setup_test_raster(self):
+        self.filename = os.path.join(self.tempdir, "test_raster")
         nan = float("nan")
         setup_input_file(
-            filename,
+            self.filename,
             np.array([[1.1, nan, 1.3], [2.1, 2.2, nan], [3.1, 3.2, 3.3]]),
             dt.datetime(2014, 11, 21, 16, 1),
         )
 
-        fp = gdal.Open(filename)
+    def tearDown(self):
+        self.fp = None
+        shutil.rmtree(self.tempdir)
 
-        # Get the top left point, coordinates 22.00, 38.00
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(4326)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(22.0, 38.0)
+    def test_top_left_point(self):
+        point = point_from_coordinates(22.0, 38.0)
         self.assertAlmostEqual(
-            hspatial.extract_point_from_raster(point, fp), 1.1, places=2
+            hspatial.extract_point_from_raster(point, self.fp), 1.1, places=2
         )
 
-        # Get the top middle point, co-ordinates 22.01, 38.00
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(4326)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(22.01, 38.0)
-        self.assertTrue(math.isnan(hspatial.extract_point_from_raster(point, fp)))
+    def test_top_middle_point(self):
+        point = point_from_coordinates(22.01, 38.0)
+        self.assertTrue(math.isnan(hspatial.extract_point_from_raster(point, self.fp)))
 
-        # Get the middle point, using co-ordinates almost to the center of
-        # the four lower left points, and only a little bit towards the center.
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(4326)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(22.00501, 37.98501)
+    def test_middle_point(self):
+        # We use co-ordinates almost to the center of the four lower left points, and
+        # only a little bit towards the center.
+        point = point_from_coordinates(22.00501, 37.98501)
         self.assertAlmostEqual(
-            hspatial.extract_point_from_raster(point, fp), 2.2, places=2
+            hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
         )
 
-        # Use almost exactly same point as before, only slightly altered
+    def test_bottom_left_point(self):
+        # Use almost exactly same point as test_middle_point(), only slightly altered
         # so that we get bottom left point instead.
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(4326)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(22.00499, 37.98499)
+        point = point_from_coordinates(22.00499, 37.98499)
         self.assertAlmostEqual(
-            hspatial.extract_point_from_raster(point, fp), 3.1, places=2
+            hspatial.extract_point_from_raster(point, self.fp), 3.1, places=2
         )
 
-        # Now try same two things as above, but with a different reference
-        # system, GRS80; the result should be the same.
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(2100)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(324651, 4205742)
+    def test_middle_point_with_GRS80(self):
+        # Same as test_middle_point(), but with a different reference system, GRS80; the
+        # result should be the same.
+        point = point_from_coordinates(324651, 4205742, srid=2100)
         self.assertAlmostEqual(
-            hspatial.extract_point_from_raster(point, fp), 2.2, places=2
+            hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
         )
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(2100)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(324648, 4205739)
+
+    def test_bottom_left_point_with_GRS80(self):
+        # Same as test_bottom_left_point(), but with a different reference system,
+        # GRS80; the result should be the same.
+        point = point_from_coordinates(324648, 4205739, srid=2100)
         self.assertAlmostEqual(
-            hspatial.extract_point_from_raster(point, fp), 3.1, places=2
+            hspatial.extract_point_from_raster(point, self.fp), 3.1, places=2
         )
 
-        # Try to get a point that is outside the raster; should raise an
-        # exception.
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(4326)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(21.0, 38.0)
-        self.assertRaises(
-            RuntimeError, hspatial.extract_point_from_raster, *(point, fp)
-        )
+    def test_point_outside_raster(self):
+        point = point_from_coordinates(21.0, 38.0)
+        with self.assertRaises(RuntimeError):
+            hspatial.extract_point_from_raster(point, self.fp)
 
-        fp = None
 
-    def test_extract_point_timeseries_from_rasters(self):
+class ExtractPointTimeseriesFromRasterTestCase(TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self._setup_test_rasters()
+
+    def _setup_test_rasters(self):
         # Create three rasters
-        filename = os.path.join(self.tempdir, "test1.tif")
+        filename = os.path.join(self.tempdir, "test-1.tif")
         setup_input_file(
             filename,
             np.array([[1.1, 1.2, 1.3], [2.1, 2.2, 2.3], [3.1, 3.2, 3.3]]),
             dt.datetime(2014, 11, 21, 16, 1),
         )
-        filename = os.path.join(self.tempdir, "test2.tif")
+        filename = os.path.join(self.tempdir, "test-2.tif")
         setup_input_file(
             filename,
             np.array([[11.1, 12.1, 13.1], [21.1, 22.1, 23.1], [31.1, 32.1, 33.1]]),
             dt.datetime(2014, 11, 22, 16, 1),
         )
-        filename = os.path.join(self.tempdir, "test0.tif")
+        filename = os.path.join(self.tempdir, "test-0.tif")
         setup_input_file(
             filename,
             np.array(
@@ -473,15 +463,10 @@ class ExtractPointFromRasterTestCase(TestCase):
             dt.datetime(2014, 11, 23, 16, 1),
         )
 
-        # Get the middle point, using co-ordinates almost to the center of
-        # the four lower left points, and only a little bit towards the center.
-        point = ogr.Geometry(ogr.wkbPoint)
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(4326)
-        point.AssignSpatialReference(sr)
-        point.AddPoint(22.00501, 37.98501)
-        files = glob(os.path.join(self.tempdir, "*.tif"))
-        ts = hspatial.extract_point_timeseries_from_rasters(files, point)
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def _check_against_expected(self, ts):
         expected = pd.DataFrame(
             data={"value": [2.2, 22.1, 220.1], "flags": ["", "", ""]},
             index=[
@@ -493,3 +478,22 @@ class ExtractPointFromRasterTestCase(TestCase):
         )
         expected.index.name = "date"
         pd.testing.assert_frame_equal(ts.data, expected)
+
+    def test_with_list_of_files(self):
+        # Use co-ordinates almost to the center of the four lower left points, and only
+        # a little bit towards the center.
+        point = point_from_coordinates(22.00501, 37.98501)
+        files = [
+            os.path.join(self.tempdir, "test-1.tif"),
+            os.path.join(self.tempdir, "test-0.tif"),
+            os.path.join(self.tempdir, "test-2.tif"),
+        ]
+        ts = hspatial.extract_point_timeseries_from_rasters(files, point)
+        self._check_against_expected(ts)
+
+    def test_with_prefix(self):
+        # Same as test_with_list_of_files(), but with prefix.
+        point = point_from_coordinates(22.00501, 37.98501)
+        prefix = os.path.join(self.tempdir, "test")
+        ts = hspatial.extract_point_timeseries_from_rasters(prefix, point)
+        self._check_against_expected(ts)

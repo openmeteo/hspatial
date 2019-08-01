@@ -1,5 +1,6 @@
 import os
 import struct
+from glob import glob
 from math import isnan
 
 import iso8601
@@ -206,17 +207,8 @@ def extract_point_from_raster(point, data_source, band_number=1):
     return result
 
 
-def extract_point_timeseries_from_rasters(files, point):
-    """Return time series of point values from a set of rasters.
-
-    Arguments:
-    files: Sequence or set of rasters.
-    point: An OGR point.
-
-    The rasters must have TIMESTAMP metadata item. The function reads all
-    rasters, extracts the value at specified point, and returns all extracted
-    values as a Timeseries object.
-    """
+def extract_point_timeseries_from_rasters(files_or_prefix, point):
+    files = _get_files_from_files_or_prefix(files_or_prefix)
     result = HTimeseries()
     for f in files:
         fp = gdal.Open(f)
@@ -230,3 +222,10 @@ def extract_point_timeseries_from_rasters(files, point):
             fp = None
     result.data = result.data.sort_index()
     return result
+
+
+def _get_files_from_files_or_prefix(files_or_prefix):
+    if isinstance(files_or_prefix, str):
+        return glob(files_or_prefix + "-*.tif")
+    else:
+        return files_or_prefix
