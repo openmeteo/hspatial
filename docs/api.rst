@@ -181,3 +181,11 @@ API
 
    In any case, the time series is returned, whether it was extracted
    from the rasters or read from an up-to-date *dest*.
+
+.. function:: hspatial.coordinates2point(x, y, srid=4326)
+
+   Returns an ogr.Geometry object of type point. If srid=4326, x is the
+   longitude and y is the latitude.
+
+.. _file format: https://github.com/openmeteo/htimeseries#file-format
+.. _htimeseries: https://github.com/openmeteo/htimeseries

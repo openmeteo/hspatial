@@ -15,6 +15,15 @@ gdal.UseExceptions()
 NODATAVALUE = -2.0 ** 127
 
 
+def coordinates2point(x, y, srid=4326):
+    point = ogr.Geometry(ogr.wkbPoint)
+    sr = osr.SpatialReference()
+    sr.ImportFromEPSG(srid)
+    point.AssignSpatialReference(sr)
+    point.AddPoint(x, y)
+    return point
+
+
 def idw(point, data_layer, alpha=1):
     data_layer.ResetReading()
     features = [f for f in data_layer if not isnan(f.GetField("value"))]

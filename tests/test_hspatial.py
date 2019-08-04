@@ -360,15 +360,6 @@ def setup_input_file(filename, value, timestamp):
         f = None
 
 
-def point_from_coordinates(x, y, srid=4326):
-    point = ogr.Geometry(ogr.wkbPoint)
-    sr = osr.SpatialReference()
-    sr.ImportFromEPSG(srid)
-    point.AssignSpatialReference(sr)
-    point.AddPoint(x, y)
-    return point
-
-
 class ExtractPointFromRasterTestCase(TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
@@ -389,19 +380,19 @@ class ExtractPointFromRasterTestCase(TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_top_left_point(self):
-        point = point_from_coordinates(22.0, 38.0)
+        point = hspatial.coordinates2point(22.0, 38.0)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 1.1, places=2
         )
 
     def test_top_middle_point(self):
-        point = point_from_coordinates(22.01, 38.0)
+        point = hspatial.coordinates2point(22.01, 38.0)
         self.assertTrue(math.isnan(hspatial.extract_point_from_raster(point, self.fp)))
 
     def test_middle_point(self):
         # We use co-ordinates almost to the center of the four lower left points, and
         # only a little bit towards the center.
-        point = point_from_coordinates(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.00501, 37.98501)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
         )
@@ -409,7 +400,7 @@ class ExtractPointFromRasterTestCase(TestCase):
     def test_bottom_left_point(self):
         # Use almost exactly same point as test_middle_point(), only slightly altered
         # so that we get bottom left point instead.
-        point = point_from_coordinates(22.00499, 37.98499)
+        point = hspatial.coordinates2point(22.00499, 37.98499)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 3.1, places=2
         )
@@ -417,7 +408,7 @@ class ExtractPointFromRasterTestCase(TestCase):
     def test_middle_point_with_GRS80(self):
         # Same as test_middle_point(), but with a different reference system, GRS80; the
         # result should be the same.
-        point = point_from_coordinates(324651, 4205742, srid=2100)
+        point = hspatial.coordinates2point(324651, 4205742, srid=2100)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
         )
@@ -425,13 +416,13 @@ class ExtractPointFromRasterTestCase(TestCase):
     def test_bottom_left_point_with_GRS80(self):
         # Same as test_bottom_left_point(), but with a different reference system,
         # GRS80; the result should be the same.
-        point = point_from_coordinates(324648, 4205739, srid=2100)
+        point = hspatial.coordinates2point(324648, 4205739, srid=2100)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 3.1, places=2
         )
 
     def test_point_outside_raster(self):
-        point = point_from_coordinates(21.0, 38.0)
+        point = hspatial.coordinates2point(21.0, 38.0)
         with self.assertRaises(RuntimeError):
             hspatial.extract_point_from_raster(point, self.fp)
 
@@ -485,7 +476,7 @@ class ExtractPointTimeseriesFromRasterTestCase(TestCase, SetupTestRastersMixin):
     def test_with_list_of_files(self):
         # Use co-ordinates almost to the center of the four lower left points, and only
         # a little bit towards the center.
-        point = point_from_coordinates(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.00501, 37.98501)
         files = [
             os.path.join(self.tempdir, "test-2014-11-22-16-1.tif"),
             os.path.join(self.tempdir, "test-2014-11-21-16-1.tif"),
@@ -496,7 +487,7 @@ class ExtractPointTimeseriesFromRasterTestCase(TestCase, SetupTestRastersMixin):
 
     def test_with_prefix(self):
         # Same as test_with_list_of_files(), but with prefix.
-        point = point_from_coordinates(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.00501, 37.98501)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.extract_point_timeseries_from_rasters(prefix, point)
         self._check_against_expected(ts)
@@ -506,7 +497,7 @@ class SavePointTimeseriesTestCase(TestCase, SetupTestRastersMixin):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         self._setup_test_rasters()
-        self.point = point_from_coordinates(22.00501, 37.98501)
+        self.point = hspatial.coordinates2point(22.00501, 37.98501)
         self.prefix = os.path.join(self.tempdir, "test")
         self.dest = os.path.join(self.tempdir, "dest.hts")
         self.result = hspatial.save_point_timeseries(self.prefix, self.point, self.dest)
