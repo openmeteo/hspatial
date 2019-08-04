@@ -1,3 +1,4 @@
+import datetime as dt
 import os
 import struct
 from glob import glob
@@ -229,3 +230,57 @@ def _get_files_from_files_or_prefix(files_or_prefix):
         return glob(files_or_prefix + "-*.tif")
     else:
         return files_or_prefix
+
+
+def save_point_timeseries(prefix, point, dest, date_fmt=None, force=False):
+    ts = _get_saved_timeseries_if_updated_else_none(prefix, dest, date_fmt, force)
+    if ts is None:
+        ts = extract_point_timeseries_from_rasters(prefix, point)
+        with open(dest, "w", newline="") as f:
+            ts.write(f, format=HTimeseries.FILE)
+    return ts
+
+
+def _get_saved_timeseries_if_updated_else_none(prefix, dest, date_fmt, force):
+    if force or not os.path.exists(dest):
+        return None
+    else:
+        return _get_timeseries_if_file_is_up_to_date_else_none(prefix, dest, date_fmt)
+
+
+def _get_timeseries_if_file_is_up_to_date_else_none(prefix, dest, date_fmt):
+    with open(dest, "r", newline="") as f:
+        ts = HTimeseries(f)
+    filenames = glob(prefix + "-*.tif")
+    filename_format = FilenameWithDateFormat(prefix, date_fmt)
+    for filename in filenames:
+        if not filename_format.get_date(filename) in ts.data.index:
+            return None
+    return ts
+
+
+class FilenameWithDateFormat:
+    def __init__(self, prefix, date_fmt=None):
+        self.prefix = prefix
+        self.date_fmt = date_fmt
+
+    def get_date(self, filename):
+        datestr = self._extract_datestr(filename)
+        self._ensure_we_have_date_fmt(datestr)
+        return dt.datetime.strptime(datestr, self.date_fmt)
+
+    def _ensure_we_have_date_fmt(self, datestr):
+        if self.date_fmt is not None:
+            pass
+        elif datestr.count("-") == 4:
+            self.date_fmt = "%Y-%m-%d-%H-%M"
+        elif datestr.count("-") == 2:
+            self.date_fmt = "%Y-%m-%d"
+        else:
+            raise ValueError("Invalid date " + datestr)
+
+    def _extract_datestr(self, filename):
+        assert filename.startswith(self.prefix + "-")
+        assert filename.endswith(".tif")
+        startpos = len(self.prefix) + 1
+        return filename[startpos:-4]

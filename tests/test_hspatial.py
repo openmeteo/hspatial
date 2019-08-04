@@ -4,12 +4,13 @@ import os
 import shutil
 import tempfile
 import textwrap
+from stat import S_IREAD, S_IRGRP, S_IROTH
 from time import sleep
 from unittest import TestCase
 
 import numpy as np
 import pandas as pd
-from htimeseries import TzinfoFromString
+from htimeseries import HTimeseries, TzinfoFromString
 from osgeo import gdal, ogr, osr
 
 import hspatial
@@ -435,26 +436,22 @@ class ExtractPointFromRasterTestCase(TestCase):
             hspatial.extract_point_from_raster(point, self.fp)
 
 
-class ExtractPointTimeseriesFromRasterTestCase(TestCase):
-    def setUp(self):
-        self.tempdir = tempfile.mkdtemp()
-        self._setup_test_rasters()
-
+class SetupTestRastersMixin:
     def _setup_test_rasters(self):
         # Create three rasters
-        filename = os.path.join(self.tempdir, "test-1.tif")
+        filename = os.path.join(self.tempdir, "test-2014-11-21-16-1.tif")
         setup_input_file(
             filename,
             np.array([[1.1, 1.2, 1.3], [2.1, 2.2, 2.3], [3.1, 3.2, 3.3]]),
             dt.datetime(2014, 11, 21, 16, 1),
         )
-        filename = os.path.join(self.tempdir, "test-2.tif")
+        filename = os.path.join(self.tempdir, "test-2014-11-22-16-1.tif")
         setup_input_file(
             filename,
             np.array([[11.1, 12.1, 13.1], [21.1, 22.1, 23.1], [31.1, 32.1, 33.1]]),
             dt.datetime(2014, 11, 22, 16, 1),
         )
-        filename = os.path.join(self.tempdir, "test-0.tif")
+        filename = os.path.join(self.tempdir, "test-2014-11-23-16-1.tif")
         setup_input_file(
             filename,
             np.array(
@@ -462,9 +459,6 @@ class ExtractPointTimeseriesFromRasterTestCase(TestCase):
             ),
             dt.datetime(2014, 11, 23, 16, 1),
         )
-
-    def tearDown(self):
-        shutil.rmtree(self.tempdir)
 
     def _check_against_expected(self, ts):
         expected = pd.DataFrame(
@@ -479,14 +473,23 @@ class ExtractPointTimeseriesFromRasterTestCase(TestCase):
         expected.index.name = "date"
         pd.testing.assert_frame_equal(ts.data, expected)
 
+
+class ExtractPointTimeseriesFromRasterTestCase(TestCase, SetupTestRastersMixin):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self._setup_test_rasters()
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
     def test_with_list_of_files(self):
         # Use co-ordinates almost to the center of the four lower left points, and only
         # a little bit towards the center.
         point = point_from_coordinates(22.00501, 37.98501)
         files = [
-            os.path.join(self.tempdir, "test-1.tif"),
-            os.path.join(self.tempdir, "test-0.tif"),
-            os.path.join(self.tempdir, "test-2.tif"),
+            os.path.join(self.tempdir, "test-2014-11-22-16-1.tif"),
+            os.path.join(self.tempdir, "test-2014-11-21-16-1.tif"),
+            os.path.join(self.tempdir, "test-2014-11-23-16-1.tif"),
         ]
         ts = hspatial.extract_point_timeseries_from_rasters(files, point)
         self._check_against_expected(ts)
@@ -497,3 +500,82 @@ class ExtractPointTimeseriesFromRasterTestCase(TestCase):
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.extract_point_timeseries_from_rasters(prefix, point)
         self._check_against_expected(ts)
+
+
+class SavePointTimeseriesTestCase(TestCase, SetupTestRastersMixin):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self._setup_test_rasters()
+        self.point = point_from_coordinates(22.00501, 37.98501)
+        self.prefix = os.path.join(self.tempdir, "test")
+        self.dest = os.path.join(self.tempdir, "dest.hts")
+        self.result = hspatial.save_point_timeseries(self.prefix, self.point, self.dest)
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_result(self):
+        self._check_against_expected(self.result)
+
+    def test_file(self):
+        with open(self.dest, "r", newline="\n") as f:
+            self._check_against_expected(HTimeseries(f))
+
+    def test_file_is_not_recreated(self):
+        # Make existing file read-only
+        os.chmod(self.dest, S_IREAD | S_IRGRP | S_IROTH)
+
+        # Try again—it shouldn't try to write, therefore it shouldn't raise exception
+        self.result = hspatial.save_point_timeseries(self.prefix, self.point, self.dest)
+        with open(self.dest, "r", newline="\n") as f:
+            self._check_against_expected(HTimeseries(f))
+
+    def test_file_is_recreated_when_out_of_date(self):
+        self._setup_additional_raster()
+
+        # Make existing file read-only
+        os.chmod(self.dest, S_IREAD | S_IRGRP | S_IROTH)
+
+        # Try again—it should raise exception
+        with self.assertRaises(PermissionError):
+            self.result = hspatial.save_point_timeseries(
+                self.prefix, self.point, self.dest
+            )
+
+    def _setup_additional_raster(self):
+        filename = os.path.join(self.tempdir, "test-2014-11-24-16-1.tif")
+        setup_input_file(
+            filename,
+            np.array(
+                [[110.1, 120.1, 130.1], [210.1, 220.1, 230.1], [310.1, 320.1, 330.1]]
+            ),
+            dt.datetime(2014, 11, 24, 16, 1),
+        )
+
+
+class FilenameWithDateFormatTestCase(TestCase):
+    def test_with_given_datetime_format(self):
+        format = hspatial.FilenameWithDateFormat("myprefix", "%d-%m-%Y-%H-%M")
+        self.assertEqual(
+            format.get_date("myprefix-4-8-2019-10-41.tif"),
+            dt.datetime(2019, 8, 4, 10, 41),
+        )
+
+    def test_with_given_date_format(self):
+        format = hspatial.FilenameWithDateFormat("myprefix", "%d-%m-%Y")
+        self.assertEqual(
+            format.get_date("myprefix-4-8-2019.tif"), dt.datetime(2019, 8, 4)
+        )
+
+    def test_datetime_with_auto_format(self):
+        format = hspatial.FilenameWithDateFormat("myprefix")
+        self.assertEqual(
+            format.get_date("myprefix-2019-8-4-10-41.tif"),
+            dt.datetime(2019, 8, 4, 10, 41),
+        )
+
+    def test_date_with_auto_format(self):
+        format = hspatial.FilenameWithDateFormat("myprefix")
+        self.assertEqual(
+            format.get_date("myprefix-2019-8-4.tif"), dt.datetime(2019, 8, 4)
+        )

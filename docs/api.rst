@@ -109,8 +109,8 @@ API
 
 .. function:: hspatial.extract_point_timeseries_from_rasters(files_or_prefix, point)
 
-   Extracts and returns a :class:`~timeseries.Timeseries` object that
-   corresponds to the values of a specific point in several rasters.
+   Extracts and returns a HTimeseries_ object that corresponds to the
+   values of a specific point in several rasters.
 
    *files_or_prefix* is either a string or a sequence or set. If it is a
    sequence or set, it is filenames of raster files which should contain
@@ -119,8 +119,8 @@ API
 
    If *files_or_prefix* is a string, then it is a prefix. In that case,
    the function picks up all the files named
-   :samp:`{files_or_prefix}-{d}.tif` (*d* is ignored in this version,
-   but it should be a date).
+   :samp:`{files_or_prefix}-{d}.tif` (*d* is ignored, but it should be a
+   date).
 
    In both cases, the ``TIMESTAMP`` GDAL metadata item of each raster
    must contain the time in ISO 8601 format.
@@ -131,8 +131,7 @@ API
    that it is converted if necessary.
 
    The function reads all rasters, extracts the value at the specified
-   point, assembles a :class:`~timeseries.Timeseries` object, and
-   returns it.
+   point, assembles a HTimeseries_ object, and returns it.
 
    Usage example::
 
@@ -156,4 +155,29 @@ API
 
       ts = extract_point_timeseries_from_rasters(files, point)
 
-.. _file format: https://github.com/openmeteo/htimeseries#file-format
+.. function:: hspatial.save_point_timeseries(prefix, point, dest, date_fmt=None, force=False)
+
+   This is like :func:`extract_point_timeseries_from_rasters`, but
+   in addition to returning an object, it saves the time series to the
+   file with filename *dest*, in `file format`_. It also only works with
+   a prefix (not with a list of files).
+
+   If the file does not already exist, or if *force* is ``True``, the
+   time series is extracted from the rasters and written to the file,
+   overwriting it if it existed.
+
+   If the file already exists and *force* is ``False``, the time series
+   file is overwritten only if it is not up to date. A time series file
+   is considered to be up to date if it contains records for all the
+   timestamps of the rasters and only those. Thus, the time series file
+   is opened and read in order to compare its timestamps with the
+   timestamps of the rasters. However, to avoid opening all the rasters
+   and reading the ``TIMESTAMP`` GDAL metadata item from them, the
+   timestamps of the rasters are obtained from the filenames.
+   Specifically, the filenames must be :samp:`{prefix}-{d}.tif`, where
+   *d* is the timestamp in the format specified by *date_fmt*. If
+   *date_fmt* is ``None``, the format is either ``%Y-%m-%d`` or
+   ``%Y-%m-%d-%H-%M``, whichever matches.
+
+   In any case, the time series is returned, whether it was extracted
+   from the rasters or read from an up-to-date *dest*.
