@@ -7,6 +7,8 @@ from math import isnan
 import iso8601
 import numpy as np
 from affine import Affine
+from django.contrib.gis.gdal import CoordTransform, SpatialReference
+from django.contrib.gis.geos import Point as GeoDjangoPoint
 from htimeseries import HTimeseries
 from osgeo import gdal, ogr, osr
 
@@ -191,21 +193,50 @@ def h_integrate(
         output = None
 
 
+class PassepartoutPoint:
+    """Uniform interface for GeoDjango Point and OGR Point."""
+
+    def __init__(self, point):
+        self.point = point
+
+    def transform_to(self, target_srs_wkt):
+        if isinstance(self.point, GeoDjangoPoint):
+            source_srs = self.point.srs or SpatialReference(4326)
+            ct = CoordTransform(source_srs, SpatialReference(target_srs_wkt))
+            return self.point.transform(ct)
+        else:
+            point_sr = self.point.GetSpatialReference()
+            raster_sr = osr.SpatialReference()
+            raster_sr.ImportFromWkt(target_srs_wkt)
+            transform = osr.CoordinateTransformation(point_sr, raster_sr)
+            return self.point.Transform(transform)
+
+    @property
+    def x(self):
+        try:
+            return self.point.x
+        except AttributeError:
+            return self.point.GetX()
+
+    @property
+    def y(self):
+        try:
+            return self.point.y
+        except AttributeError:
+            return self.point.GetY()
+
+
 def extract_point_from_raster(point, data_source, band_number=1):
     """Return floating-point value that corresponds to given point."""
+    pppoint = PassepartoutPoint(point)
 
     # Convert point co-ordinates so that they are in same projection as raster
-    point_sr = point.GetSpatialReference()
-    raster_sr = osr.SpatialReference()
-    raster_sr.ImportFromWkt(data_source.GetProjection())
-    transform = osr.CoordinateTransformation(point_sr, raster_sr)
-    point.Transform(transform)
+    pppoint.transform_to(data_source.GetProjection())
 
     # Convert geographic co-ordinates to pixel co-ordinates
-    x, y = point.GetX(), point.GetY()
     forward_transform = Affine.from_gdal(*data_source.GetGeoTransform())
     reverse_transform = ~forward_transform
-    px, py = reverse_transform * (x, y)
+    px, py = reverse_transform * (pppoint.x, pppoint.y)
     px, py = int(px + 0.5), int(py + 0.5)
 
     # Extract pixel value

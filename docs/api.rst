@@ -97,9 +97,9 @@ API
 
 .. function:: hspatial.extract_point_from_raster(point, data_source, band_number=1)
 
-   *data_source* is a GDAL raster, and *point* is an OGR point object.
-   The function returns the value of the pixel of the specified band
-   of *data_source* that is nearest to *point*.
+   *data_source* is a GDAL raster. *point* is either an OGR point, or a
+   GeoDjango point object.  The function returns the value of the pixel
+   of the specified band of *data_source* that is nearest to *point*.
 
    *point* and *data_source* need not be in the same reference system,
    but they must both have an appropriate spatial reference defined.
@@ -125,10 +125,10 @@ API
    In both cases, the ``TIMESTAMP`` GDAL metadata item of each raster
    must contain the time in ISO 8601 format.
 
-   *point* is an OGR point object. It need not be in the same
-   reference system as *files*; however, the files must contain
-   spatial reference (projection) information, and so must *point*, so
-   that it is converted if necessary.
+   *point* is either an OGR point object or a GeoDjango point object. It
+   need not be in the same reference system as *files*; however, the
+   files must contain spatial reference (projection) information, and so
+   must *point*, so that it is converted if necessary.
 
    The function reads all rasters, extracts the value at the specified
    point, assembles a HTimeseries_ object, and returns it.

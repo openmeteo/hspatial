@@ -10,6 +10,7 @@ from unittest import TestCase
 
 import numpy as np
 import pandas as pd
+from django.contrib.gis.geos import Point as GeoDjangoPoint
 from htimeseries import HTimeseries, TzinfoFromString
 from osgeo import gdal, ogr, osr
 
@@ -385,6 +386,12 @@ class ExtractPointFromRasterTestCase(TestCase):
             hspatial.extract_point_from_raster(point, self.fp), 1.1, places=2
         )
 
+    def test_top_left_point_as_geodjango(self):
+        point = GeoDjangoPoint(22.0, 38.0)
+        self.assertAlmostEqual(
+            hspatial.extract_point_from_raster(point, self.fp), 1.1, places=2
+        )
+
     def test_top_middle_point(self):
         point = hspatial.coordinates2point(22.01, 38.0)
         self.assertTrue(math.isnan(hspatial.extract_point_from_raster(point, self.fp)))
@@ -488,6 +495,12 @@ class ExtractPointTimeseriesFromRasterTestCase(TestCase, SetupTestRastersMixin):
     def test_with_prefix(self):
         # Same as test_with_list_of_files(), but with prefix.
         point = hspatial.coordinates2point(22.00501, 37.98501)
+        prefix = os.path.join(self.tempdir, "test")
+        ts = hspatial.extract_point_timeseries_from_rasters(prefix, point)
+        self._check_against_expected(ts)
+
+    def test_with_prefix_and_geodjango(self):
+        point = GeoDjangoPoint(22.00501, 37.98501)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.extract_point_timeseries_from_rasters(prefix, point)
         self._check_against_expected(ts)
