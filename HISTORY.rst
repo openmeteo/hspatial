@@ -2,6 +2,18 @@
 History
 =======
 
+0.2.0 (2019-08-13)
+==================
+
+- When extracting point time series from a set of rasters, it is now
+  possible to provide a prefix as well as a list of files, and it is
+  also possible to save the extracted time series to a file, optionally
+  only if the file is outdated.
+- extract_point_from_raster (and extract_point_timeseries_from_rasters)
+  now supports GeoDjango (GEOS) Point objects besides GDAL Point
+  objects.
+- Function coordinates2point has been added.
+
 0.1.2 (2019-07-30)
 ==================
 
