@@ -107,80 +107,85 @@ API
    If the *point* does not fall in the raster, :exc:`RuntimeError` is
    raised.
 
-.. function:: hspatial.extract_point_timeseries_from_rasters(files_or_prefix, point)
+.. class:: hspatial.PointTimeseries(point, filenames=None, prefix=None, date_fmt=None)
 
-   Extracts and returns a HTimeseries_ object that corresponds to the
-   values of a specific point in several rasters.
+   A class that can extract a point timeseries from a set of rasters.
 
-   *files_or_prefix* is either a string or a sequence or set. If it is a
-   sequence or set, it is filenames of raster files which should contain
-   the same variable in different times; for example, the rasters can be
-   representing spatial rainfall, each raster at a different time.
-
-   If *files_or_prefix* is a string, then it is a prefix. In that case,
-   the function picks up all the files named
-   :samp:`{files_or_prefix}-{d}.tif` (*d* is ignored, but it should be a
-   date).
-
-   In both cases, the ``TIMESTAMP`` GDAL metadata item of each raster
-   must contain the time in ISO 8601 format.
-
-   *point* is either an OGR point object or a GeoDjango point object. It
-   need not be in the same reference system as *files*; however, the
-   files must contain spatial reference (projection) information, and so
-   must *point*, so that it is converted if necessary.
-
-   The function reads all rasters, extracts the value at the specified
-   point, assembles a HTimeseries_ object, and returns it.
-
-   Usage example::
-
-      from glob import glob
-
-      from osgeo import ogr, osr
-
-      from hspatial import extract_point_timeseries_from_rasters
-
-      point = ogr.Geometry(ogr.wkbPoint)
-
-      # Specify that the point uses the WGS84 reference system
-      sr = osr.SpatialReference()
-      sr.ImportFromEPSG(4326)
-      point.AssignSpatialReference(sr)
-
-      # Point's co-ordinates (in WGS84 it's latitude and longitude)
-      point.AddPoint(23.78901, 37.98765)
-
-      files = glob('/var/opt/hspatial/rainfall*.tif')
-
-      ts = extract_point_timeseries_from_rasters(files, point)
-
-.. function:: hspatial.save_point_timeseries(prefix, point, dest, date_fmt=None, force=False)
-
-   This is like :func:`extract_point_timeseries_from_rasters`, but
-   in addition to returning an object, it saves the time series to the
-   file with filename *dest*, in `file format`_. It also only works with
-   a prefix (not with a list of files).
-
-   If the file does not already exist, or if *force* is ``True``, the
-   time series is extracted from the rasters and written to the file,
-   overwriting it if it existed.
-
-   If the file already exists and *force* is ``False``, the time series
-   file is overwritten only if it is not up to date. A time series file
-   is considered to be up to date if it contains records for all the
-   timestamps of the rasters and only those. Thus, the time series file
-   is opened and read in order to compare its timestamps with the
-   timestamps of the rasters. However, to avoid opening all the rasters
-   and reading the ``TIMESTAMP`` GDAL metadata item from them, the
-   timestamps of the rasters are obtained from the filenames.
-   Specifically, the filenames must be :samp:`{prefix}-{d}.tif`, where
-   *d* is the timestamp in the format specified by *date_fmt*. If
+   The set of rasters is specified either with *filenames* or with
+   *prefix*.  Exactly one of these must be ``None``. *filenames*, if
+   specified, must be a sequence or set of names of raster files which
+   should contain the same variable in different times; for example, the
+   rasters can be representing spatial rainfall, each raster at a
+   different time. If, instead, *prefix* is specified, the raster files
+   are named :samp:`{prefix}-{timestamp}.tif`. In that case, the
+   timestamp must be in the format specified by *date_fmt*. If
    *date_fmt* is ``None``, the format is either ``%Y-%m-%d`` or
    ``%Y-%m-%d-%H-%M``, whichever matches.
 
-   In any case, the time series is returned, whether it was extracted
-   from the rasters or read from an up-to-date *dest*.
+   However, when creating the time series, the timestamp is obtained
+   from the ``TIMESTAMP`` GDAL metadata item of each raster, which must
+   be in ISO 8601 format. The timestamp on the filename is only used
+   when determining whether it's worth to open a file or not (e.g.
+   because a start timestamp or end timestamp has been requested, or
+   because it is being determined whether a cache is up-to-date).
+
+   *point* is either an OGR point object or a GeoDjango point object. It
+   need not be in the same reference system as the rasters; however, the
+   rasters must contain spatial reference (projection) information, and so
+   must *point*, so that it is converted if necessary.
+
+   .. method:: hspatial.PointTimeseries.get(start_date=None, end_date=None)
+
+      Extracts and returns a HTimeseries_ object that corresponds to the
+      values of the point in the rasters.
+
+      If *start_date* or *end_date* are specified, only that part of the
+      time series is read from the rasters. This is only valid when the
+      class has been initialized with a prefix (not with a list of
+      filenames).
+
+      Usage example::
+
+         from glob import glob
+
+         from osgeo import ogr, osr
+
+         from hspatial import PointTimeseries
+
+         point = ogr.Geometry(ogr.wkbPoint)
+
+         # Specify that the point uses the WGS84 reference system
+         sr = osr.SpatialReference()
+         sr.ImportFromEPSG(4326)
+         point.AssignSpatialReference(sr)
+
+         # Point's co-ordinates (in WGS84 it's latitude and longitude)
+         point.AddPoint(23.78901, 37.98765)
+
+         filenames = glob('/var/opt/hspatial/rainfall*.tif')
+
+         ts = PointTimeseries(point, filenames=filenames).get()
+
+   .. method:: hspatial.PointTimeseries.get_cached(dest, force=False, start_date=None, end_date=None)
+
+      This is like :meth:`~hspatial.PointTimeseries.get`, but in addition
+      to returning an object, it saves the time series to the file with
+      filename *dest*, in `file format`_. It works only when the class
+      has been initialized with a prefix (not with filenames).
+
+      If the file does not already exist, or if *force* is ``True``, the
+      time series is extracted from the rasters and written to the file,
+      overwriting it if it existed.
+
+      If the file already exists and *force* is ``False``, the time series
+      file is overwritten only if it is not up to date. A time series file
+      is considered to be up to date if it contains records for all the
+      timestamps of the rasters and only those. Thus, the time series file
+      is opened and read in order to compare its timestamps with the
+      timestamps of the rasters.
+
+      The time series is returned, whether it was extracted from the
+      rasters or read from an up-to-date *dest*.
 
 .. function:: hspatial.coordinates2point(x, y, srid=4326)
 

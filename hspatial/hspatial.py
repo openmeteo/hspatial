@@ -248,55 +248,53 @@ def extract_point_from_raster(point, data_source, band_number=1):
     return result
 
 
-def extract_point_timeseries_from_rasters(files_or_prefix, point):
-    files = _get_files_from_files_or_prefix(files_or_prefix)
-    result = HTimeseries()
-    for f in files:
-        fp = gdal.Open(f)
-        try:
-            isostring = fp.GetMetadata()["TIMESTAMP"]
-            timestamp = iso8601.parse_date(isostring, default_timezone=None)
-            value = extract_point_from_raster(point, fp)
-            result.data.loc[timestamp, "value"] = value
-            result.data.loc[timestamp, "flags"] = ""
-        finally:
-            fp = None
-    result.data = result.data.sort_index()
-    return result
+class PointTimeseries:
+    def __init__(self, point, *, filenames=None, prefix=None, date_fmt=None):
+        assert filenames is None or prefix is None
+        assert filenames is not None or prefix is not None
+        self.point = point
+        self.prefix = prefix
+        self.date_fmt = date_fmt
+        self.filenames = filenames or glob(prefix + "-*.tif")
 
+    def get(self, start_date=None, end_date=None):
+        result = HTimeseries()
+        for filename in self.filenames:
+            f = gdal.Open(filename)
+            try:
+                isostring = f.GetMetadata()["TIMESTAMP"]
+                timestamp = iso8601.parse_date(isostring, default_timezone=None)
+                value = extract_point_from_raster(self.point, f)
+                result.data.loc[timestamp, "value"] = value
+                result.data.loc[timestamp, "flags"] = ""
+            finally:
+                f = None
+        result.data = result.data.sort_index()
+        return result
 
-def _get_files_from_files_or_prefix(files_or_prefix):
-    if isinstance(files_or_prefix, str):
-        return glob(files_or_prefix + "-*.tif")
-    else:
-        return files_or_prefix
+    def get_cached(self, dest, force=False, start_date=None, end_date=None):
+        assert self.prefix
+        ts = self._get_saved_timeseries_if_updated_else_none(dest, force)
+        if ts is None:
+            ts = self.get(start_date=start_date, end_date=end_date)
+            with open(dest, "w", newline="") as f:
+                ts.write(f, format=HTimeseries.FILE)
+        return ts
 
-
-def save_point_timeseries(prefix, point, dest, date_fmt=None, force=False):
-    ts = _get_saved_timeseries_if_updated_else_none(prefix, dest, date_fmt, force)
-    if ts is None:
-        ts = extract_point_timeseries_from_rasters(prefix, point)
-        with open(dest, "w", newline="") as f:
-            ts.write(f, format=HTimeseries.FILE)
-    return ts
-
-
-def _get_saved_timeseries_if_updated_else_none(prefix, dest, date_fmt, force):
-    if force or not os.path.exists(dest):
-        return None
-    else:
-        return _get_timeseries_if_file_is_up_to_date_else_none(prefix, dest, date_fmt)
-
-
-def _get_timeseries_if_file_is_up_to_date_else_none(prefix, dest, date_fmt):
-    with open(dest, "r", newline="") as f:
-        ts = HTimeseries(f)
-    filenames = glob(prefix + "-*.tif")
-    filename_format = FilenameWithDateFormat(prefix, date_fmt)
-    for filename in filenames:
-        if not filename_format.get_date(filename) in ts.data.index:
+    def _get_saved_timeseries_if_updated_else_none(self, dest, force):
+        if force or not os.path.exists(dest):
             return None
-    return ts
+        else:
+            return self._get_timeseries_if_file_is_up_to_date_else_none(dest)
+
+    def _get_timeseries_if_file_is_up_to_date_else_none(self, dest):
+        with open(dest, "r", newline="") as f:
+            ts = HTimeseries(f)
+        filename_format = FilenameWithDateFormat(self.prefix, self.date_fmt)
+        for filename in self.filenames:
+            if not filename_format.get_date(filename) in ts.data.index:
+                return None
+        return ts
 
 
 class FilenameWithDateFormat:

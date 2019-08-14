@@ -472,7 +472,7 @@ class SetupTestRastersMixin:
         pd.testing.assert_frame_equal(ts.data, expected)
 
 
-class ExtractPointTimeseriesFromRasterTestCase(TestCase, SetupTestRastersMixin):
+class PointTimeseriesGetTestCase(TestCase, SetupTestRastersMixin):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         self._setup_test_rasters()
@@ -484,57 +484,63 @@ class ExtractPointTimeseriesFromRasterTestCase(TestCase, SetupTestRastersMixin):
         # Use co-ordinates almost to the center of the four lower left points, and only
         # a little bit towards the center.
         point = hspatial.coordinates2point(22.00501, 37.98501)
-        files = [
+        filenames = [
             os.path.join(self.tempdir, "test-2014-11-22-16-1.tif"),
             os.path.join(self.tempdir, "test-2014-11-21-16-1.tif"),
             os.path.join(self.tempdir, "test-2014-11-23-16-1.tif"),
         ]
-        ts = hspatial.extract_point_timeseries_from_rasters(files, point)
+        ts = hspatial.PointTimeseries(point, filenames=filenames).get()
         self._check_against_expected(ts)
 
     def test_with_prefix(self):
         # Same as test_with_list_of_files(), but with prefix.
         point = hspatial.coordinates2point(22.00501, 37.98501)
         prefix = os.path.join(self.tempdir, "test")
-        ts = hspatial.extract_point_timeseries_from_rasters(prefix, point)
+        ts = hspatial.PointTimeseries(point, prefix=prefix).get()
         self._check_against_expected(ts)
 
     def test_with_prefix_and_geodjango(self):
         point = GeoDjangoPoint(22.00501, 37.98501)
         prefix = os.path.join(self.tempdir, "test")
-        ts = hspatial.extract_point_timeseries_from_rasters(prefix, point)
+        ts = hspatial.PointTimeseries(point, prefix=prefix).get()
         self._check_against_expected(ts)
 
 
-class SavePointTimeseriesTestCase(TestCase, SetupTestRastersMixin):
+class PointTimeseriesGetCachedTestCase(TestCase, SetupTestRastersMixin):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         self._setup_test_rasters()
         self.point = hspatial.coordinates2point(22.00501, 37.98501)
         self.prefix = os.path.join(self.tempdir, "test")
         self.dest = os.path.join(self.tempdir, "dest.hts")
-        self.result = hspatial.save_point_timeseries(self.prefix, self.point, self.dest)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
 
     def test_result(self):
-        self._check_against_expected(self.result)
+        result = hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(
+            self.dest
+        )
+        self._check_against_expected(result)
 
     def test_file(self):
+        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
         with open(self.dest, "r", newline="\n") as f:
             self._check_against_expected(HTimeseries(f))
 
     def test_file_is_not_recreated(self):
+        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
+
         # Make existing file read-only
         os.chmod(self.dest, S_IREAD | S_IRGRP | S_IROTH)
 
         # Try again—it shouldn't try to write, therefore it shouldn't raise exception
-        self.result = hspatial.save_point_timeseries(self.prefix, self.point, self.dest)
+        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
         with open(self.dest, "r", newline="\n") as f:
             self._check_against_expected(HTimeseries(f))
 
     def test_file_is_recreated_when_out_of_date(self):
+        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
         self._setup_additional_raster()
 
         # Make existing file read-only
@@ -542,8 +548,8 @@ class SavePointTimeseriesTestCase(TestCase, SetupTestRastersMixin):
 
         # Try again—it should raise exception
         with self.assertRaises(PermissionError):
-            self.result = hspatial.save_point_timeseries(
-                self.prefix, self.point, self.dest
+            hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(
+                self.dest
             )
 
     def _setup_additional_raster(self):
