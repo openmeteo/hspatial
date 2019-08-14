@@ -249,15 +249,32 @@ def extract_point_from_raster(point, data_source, band_number=1):
 
 
 class PointTimeseries:
-    def __init__(self, point, *, filenames=None, prefix=None, date_fmt=None):
-        assert filenames is None or prefix is None
-        assert filenames is not None or prefix is not None
+    def __init__(self, point, **kwargs):
         self.point = point
-        self.prefix = prefix
-        self.date_fmt = date_fmt
-        self.filenames = filenames or glob(prefix + "-*.tif")
+        filenames = kwargs.pop("filenames", None)
+        self.prefix = kwargs.pop("prefix", None)
+        assert filenames is None or self.prefix is None
+        assert filenames is not None or self.prefix is not None
+        self.date_fmt = kwargs.pop("date_fmt", None)
+        self.start_date = kwargs.pop("start_date", None)
+        self.end_date = kwargs.pop("end_date", None)
+        self.filenames = self._get_filenames(filenames)
 
-    def get(self, start_date=None, end_date=None):
+    def _get_filenames(self, filenames):
+        if self.prefix is None:
+            return filenames
+        filenames = glob(self.prefix + "-*.tif")
+        self.filename_format = FilenameWithDateFormat(self.prefix, self.date_fmt)
+        result = []
+        for filename in filenames:
+            date = self.filename_format.get_date(filename)
+            is_after_start_date = (self.start_date is None) or (date >= self.start_date)
+            is_before_end_date = (self.end_date is None) or (date <= self.end_date)
+            if is_after_start_date and is_before_end_date:
+                result.append(filename)
+        return result
+
+    def get(self):
         result = HTimeseries()
         for filename in self.filenames:
             f = gdal.Open(filename)
@@ -272,11 +289,11 @@ class PointTimeseries:
         result.data = result.data.sort_index()
         return result
 
-    def get_cached(self, dest, force=False, start_date=None, end_date=None):
+    def get_cached(self, dest, force=False):
         assert self.prefix
         ts = self._get_saved_timeseries_if_updated_else_none(dest, force)
         if ts is None:
-            ts = self.get(start_date=start_date, end_date=end_date)
+            ts = self.get()
             with open(dest, "w", newline="") as f:
                 ts.write(f, format=HTimeseries.FILE)
         return ts
@@ -290,9 +307,8 @@ class PointTimeseries:
     def _get_timeseries_if_file_is_up_to_date_else_none(self, dest):
         with open(dest, "r", newline="") as f:
             ts = HTimeseries(f)
-        filename_format = FilenameWithDateFormat(self.prefix, self.date_fmt)
         for filename in self.filenames:
-            if not filename_format.get_date(filename) in ts.data.index:
+            if not self.filename_format.get_date(filename) in ts.data.index:
                 return None
         return ts
 

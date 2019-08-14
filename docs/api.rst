@@ -107,7 +107,7 @@ API
    If the *point* does not fall in the raster, :exc:`RuntimeError` is
    raised.
 
-.. class:: hspatial.PointTimeseries(point, filenames=None, prefix=None, date_fmt=None)
+.. class:: hspatial.PointTimeseries(point, filenames=None, prefix=None, date_fmt=None, start_date=None, end_date=None)
 
    A class that can extract a point timeseries from a set of rasters.
 
@@ -134,15 +134,15 @@ API
    rasters must contain spatial reference (projection) information, and so
    must *point*, so that it is converted if necessary.
 
-   .. method:: hspatial.PointTimeseries.get(start_date=None, end_date=None)
+   If *start_date* or *end_date* are specified, only that part of the
+   time series is read from the rasters. This is only valid when the
+   class has been initialized with a prefix (not with a list of
+   filenames).
+
+   .. method:: hspatial.PointTimeseries.get()
 
       Extracts and returns a HTimeseries_ object that corresponds to the
       values of the point in the rasters.
-
-      If *start_date* or *end_date* are specified, only that part of the
-      time series is read from the rasters. This is only valid when the
-      class has been initialized with a prefix (not with a list of
-      filenames).
 
       Usage example::
 
@@ -166,7 +166,7 @@ API
 
          ts = PointTimeseries(point, filenames=filenames).get()
 
-   .. method:: hspatial.PointTimeseries.get_cached(dest, force=False, start_date=None, end_date=None)
+   .. method:: hspatial.PointTimeseries.get_cached(dest, force=False)
 
       This is like :meth:`~hspatial.PointTimeseries.get`, but in addition
       to returning an object, it saves the time series to the file with

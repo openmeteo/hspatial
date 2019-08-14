@@ -562,6 +562,20 @@ class PointTimeseriesGetCachedTestCase(TestCase, SetupTestRastersMixin):
             dt.datetime(2014, 11, 24, 16, 1),
         )
 
+    def test_start_date(self):
+        start_date = dt.datetime(2014, 11, 22, 16, 1)
+        result = hspatial.PointTimeseries(
+            self.point, prefix=self.prefix, start_date=start_date
+        ).get_cached(self.dest)
+        self.assertEqual(result.data.index[0], start_date)
+
+    def test_end_date(self):
+        end_date = dt.datetime(2014, 11, 22, 16, 1)
+        result = hspatial.PointTimeseries(
+            self.point, prefix=self.prefix, end_date=end_date
+        ).get_cached(self.dest)
+        self.assertEqual(result.data.index[-1], end_date)
+
 
 class FilenameWithDateFormatTestCase(TestCase):
     def test_with_given_datetime_format(self):
