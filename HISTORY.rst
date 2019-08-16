@@ -2,6 +2,14 @@
 History
 =======
 
+1.0.0 (2019-08-16)
+==================
+
+- The API for extract_point_timeseries_from_rasters() has changed.
+  Instead of a function, there's now a PointTimeseries class.
+- When extracting a point timeseries from rasters, start_date and
+  end_date can now be specified.
+
 0.2.0 (2019-08-13)
 ==================
 
