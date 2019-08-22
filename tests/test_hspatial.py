@@ -344,17 +344,20 @@ class HIntegrateTestCase(TestCase):
         f = None
 
 
-def setup_input_file(filename, value, timestamp):
+def setup_input_file(filename, value, timestamp, srid=4326):
     """Save value, which is an np array, to a GeoTIFF file."""
     nodata = 1e8
     value[np.isnan(value)] = nodata
     f = gdal.GetDriverByName("GTiff").Create(filename, 3, 3, 1, gdal.GDT_Float32)
     try:
         f.SetMetadataItem("TIMESTAMP", timestamp.isoformat())
-        f.SetGeoTransform((22.0, 0.01, 0, 38.0, 0, -0.01))
-        wgs84 = osr.SpatialReference()
-        wgs84.ImportFromEPSG(4326)
-        f.SetProjection(wgs84.ExportToWkt())
+        if srid == 4326:
+            f.SetGeoTransform((22.0, 0.01, 0, 38.0, 0, -0.01))
+        elif srid == 2100:
+            f.SetGeoTransform((320000, 1000, 0, 4210000, 0, -1000))
+        sr = osr.SpatialReference()
+        sr.ImportFromEPSG(srid)
+        f.SetProjection(sr.ExportToWkt())
         f.GetRasterBand(1).SetNoDataValue(nodata)
         f.GetRasterBand(1).WriteArray(value)
     finally:
@@ -430,6 +433,37 @@ class ExtractPointFromRasterTestCase(TestCase):
 
     def test_point_outside_raster(self):
         point = hspatial.coordinates2point(21.0, 38.0)
+        with self.assertRaises(RuntimeError):
+            hspatial.extract_point_from_raster(point, self.fp)
+
+
+class ExtractPointFromRasterWhenOutsideCRSLimitsTestCase(TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self._setup_test_raster()
+        self.fp = gdal.Open(self.filename)
+
+    def _setup_test_raster(self):
+        self.filename = os.path.join(self.tempdir, "test_raster")
+        nan = float("nan")
+        setup_input_file(
+            self.filename,
+            np.array([[1.1, nan, 1.3], [2.1, 2.2, nan], [3.1, 3.2, 3.3]]),
+            dt.datetime(2014, 11, 21, 16, 1),
+            srid=2100,
+        )
+
+    def tearDown(self):
+        self.fp = None
+        shutil.rmtree(self.tempdir)
+
+    def test_fails_gracefully_when_osr_point_is_really_outside_crs_limits(self):
+        point = hspatial.coordinates2point(125.0, 85.0)
+        with self.assertRaises(RuntimeError):
+            hspatial.extract_point_from_raster(point, self.fp)
+
+    def test_fails_gracefully_when_geos_point_is_really_outside_crs_limits(self):
+        point = GeoDjangoPoint(125.0, 85.0)
         with self.assertRaises(RuntimeError):
             hspatial.extract_point_from_raster(point, self.fp)
 

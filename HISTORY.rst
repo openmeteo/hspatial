@@ -2,6 +2,12 @@
 History
 =======
 
+1.0.1 (2019-08-22)
+==================
+
+- Fixed a bug in extract_point_from_timeseries() where it was sometimes
+  raising the wrong exception type (depending on GDAL version).
+
 1.0.0 (2019-08-16)
 ==================
 

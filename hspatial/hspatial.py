@@ -8,6 +8,7 @@ import iso8601
 import numpy as np
 from affine import Affine
 from django.contrib.gis.gdal import CoordTransform, SpatialReference
+from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.geos import Point as GeoDjangoPoint
 from htimeseries import HTimeseries
 from osgeo import gdal, ogr, osr
@@ -231,7 +232,14 @@ def extract_point_from_raster(point, data_source, band_number=1):
     pppoint = PassepartoutPoint(point)
 
     # Convert point co-ordinates so that they are in same projection as raster
-    pppoint.transform_to(data_source.GetProjection())
+    target_srs_wkt = data_source.GetProjection()
+    try:
+        pppoint.transform_to(target_srs_wkt)
+    except GDALException:
+        raise RuntimeError("Couldn't convert point to raster's CRS")
+    infinities = (float("inf"), float("-inf"))
+    if pppoint.x in infinities or pppoint.y in infinities:
+        raise RuntimeError("Couldn't convert point to raster's CRS")
 
     # Convert geographic co-ordinates to pixel co-ordinates
     forward_transform = Affine.from_gdal(*data_source.GetGeoTransform())
