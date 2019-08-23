@@ -2,6 +2,12 @@
 History
 =======
 
+1.1.0 (2019-08-23)
+==================
+
+- Added option "version" to PointTimeseries.get_cached() so that it can
+  save in different file format versions.
+
 1.0.1 (2019-08-22)
 ==================
 
