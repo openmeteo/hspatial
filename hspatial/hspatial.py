@@ -297,13 +297,13 @@ class PointTimeseries:
         result.data = result.data.sort_index()
         return result
 
-    def get_cached(self, dest, force=False):
+    def get_cached(self, dest, force=False, version=4):
         assert self.prefix
         ts = self._get_saved_timeseries_if_updated_else_none(dest, force)
         if ts is None:
             ts = self.get()
             with open(dest, "w", newline="") as f:
-                ts.write(f, format=HTimeseries.FILE)
+                ts.write(f, format=HTimeseries.FILE, version=version)
         return ts
 
     def _get_saved_timeseries_if_updated_else_none(self, dest, force):

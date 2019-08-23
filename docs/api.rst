@@ -166,7 +166,7 @@ API
 
          ts = PointTimeseries(point, filenames=filenames).get()
 
-   .. method:: hspatial.PointTimeseries.get_cached(dest, force=False)
+   .. method:: hspatial.PointTimeseries.get_cached(dest, force=False, version=4)
 
       This is like :meth:`~hspatial.PointTimeseries.get`, but in addition
       to returning an object, it saves the time series to the file with
@@ -186,6 +186,9 @@ API
 
       The time series is returned, whether it was extracted from the
       rasters or read from an up-to-date *dest*.
+
+      The *version* parameter is passed to HTimeseries_'s .write()
+      method.
 
 .. function:: hspatial.coordinates2point(x, y, srid=4326)
 

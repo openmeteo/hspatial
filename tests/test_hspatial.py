@@ -562,6 +562,14 @@ class PointTimeseriesGetCachedTestCase(TestCase, SetupTestRastersMixin):
         with open(self.dest, "r", newline="\n") as f:
             self._check_against_expected(HTimeseries(f))
 
+    def test_version(self):
+        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(
+            self.dest, version=2
+        )
+        with open(self.dest, "r") as f:
+            first_line = f.readline()
+        self.assertEqual(first_line, "Version=2\n")
+
     def test_file_is_not_recreated(self):
         hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
 
