@@ -12,9 +12,10 @@ import numpy as np
 import pandas as pd
 from django.contrib.gis.geos import Point as GeoDjangoPoint
 from htimeseries import HTimeseries, TzinfoFromString
-from osgeo import gdal, ogr, osr
+from osgeo import gdal, ogr
 
 import hspatial
+from hspatial.test import setup_test_raster
 
 gdal.UseExceptions()
 
@@ -344,26 +345,6 @@ class HIntegrateTestCase(TestCase):
         f = None
 
 
-def setup_input_file(filename, value, timestamp, srid=4326):
-    """Save value, which is an np array, to a GeoTIFF file."""
-    nodata = 1e8
-    value[np.isnan(value)] = nodata
-    f = gdal.GetDriverByName("GTiff").Create(filename, 3, 3, 1, gdal.GDT_Float32)
-    try:
-        f.SetMetadataItem("TIMESTAMP", timestamp.isoformat())
-        if srid == 4326:
-            f.SetGeoTransform((22.0, 0.01, 0, 38.0, 0, -0.01))
-        elif srid == 2100:
-            f.SetGeoTransform((320000, 1000, 0, 4210000, 0, -1000))
-        sr = osr.SpatialReference()
-        sr.ImportFromEPSG(srid)
-        f.SetProjection(sr.ExportToWkt())
-        f.GetRasterBand(1).SetNoDataValue(nodata)
-        f.GetRasterBand(1).WriteArray(value)
-    finally:
-        f = None
-
-
 class ExtractPointFromRasterTestCase(TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
@@ -373,7 +354,7 @@ class ExtractPointFromRasterTestCase(TestCase):
     def _setup_test_raster(self):
         self.filename = os.path.join(self.tempdir, "test_raster")
         nan = float("nan")
-        setup_input_file(
+        setup_test_raster(
             self.filename,
             np.array([[1.1, nan, 1.3], [2.1, 2.2, nan], [3.1, 3.2, 3.3]]),
             dt.datetime(2014, 11, 21, 16, 1),
@@ -446,7 +427,7 @@ class ExtractPointFromRasterWhenOutsideCRSLimitsTestCase(TestCase):
     def _setup_test_raster(self):
         self.filename = os.path.join(self.tempdir, "test_raster")
         nan = float("nan")
-        setup_input_file(
+        setup_test_raster(
             self.filename,
             np.array([[1.1, nan, 1.3], [2.1, 2.2, nan], [3.1, 3.2, 3.3]]),
             dt.datetime(2014, 11, 21, 16, 1),
@@ -472,19 +453,19 @@ class SetupTestRastersMixin:
     def _setup_test_rasters(self):
         # Create three rasters
         filename = os.path.join(self.tempdir, "test-2014-11-21-16-1.tif")
-        setup_input_file(
+        setup_test_raster(
             filename,
             np.array([[1.1, 1.2, 1.3], [2.1, 2.2, 2.3], [3.1, 3.2, 3.3]]),
             dt.datetime(2014, 11, 21, 16, 1),
         )
         filename = os.path.join(self.tempdir, "test-2014-11-22-16-1.tif")
-        setup_input_file(
+        setup_test_raster(
             filename,
             np.array([[11.1, 12.1, 13.1], [21.1, 22.1, 23.1], [31.1, 32.1, 33.1]]),
             dt.datetime(2014, 11, 22, 16, 1),
         )
         filename = os.path.join(self.tempdir, "test-2014-11-23-16-1.tif")
-        setup_input_file(
+        setup_test_raster(
             filename,
             np.array(
                 [[110.1, 120.1, 130.1], [210.1, 220.1, 230.1], [310.1, 320.1, 330.1]]
@@ -596,7 +577,7 @@ class PointTimeseriesGetCachedTestCase(TestCase, SetupTestRastersMixin):
 
     def _setup_additional_raster(self):
         filename = os.path.join(self.tempdir, "test-2014-11-24-16-1.tif")
-        setup_input_file(
+        setup_test_raster(
             filename,
             np.array(
                 [[110.1, 120.1, 130.1], [210.1, 220.1, 230.1], [310.1, 320.1, 330.1]]

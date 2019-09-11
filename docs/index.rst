@@ -7,4 +7,5 @@ hspatial - Utilities for spatial integration of time series
 
    usage
    api
+   testutils
    history

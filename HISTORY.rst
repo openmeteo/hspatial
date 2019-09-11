@@ -2,6 +2,11 @@
 History
 =======
 
+1.2.0 (2019-09-11)
+==================
+
+- Added test utility setup_test_raster() to make unit testing easier.
+
 1.1.0 (2019-08-23)
 ==================
 
