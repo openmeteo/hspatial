@@ -134,7 +134,7 @@ class App:
         """
         time_step = None
         for filename in self.config.files:
-            with open(filename) as f:
+            with open(filename, newline="\n") as f:
                 t = HTimeseries(f, start_date="0001-01-01 00:00")
             item_time_step = t.time_step
             if time_step and (item_time_step != time_step):
