@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from django.contrib.gis.geos import Point as GeoDjangoPoint
 from htimeseries import HTimeseries, TzinfoFromString
-from osgeo import gdal, ogr
+from osgeo import gdal, ogr, osr
 
 import hspatial
 from hspatial.test import setup_test_raster
@@ -404,6 +404,14 @@ class ExtractPointFromRasterTestCase(TestCase):
             hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
         )
 
+    def test_does_not_modify_srid_of_point(self):
+        point = hspatial.coordinates2point(324651, 4205742, srid=2100)
+        original_spatial_reference = point.GetSpatialReference().ExportToWkt()
+        hspatial.extract_point_from_raster(point, self.fp)
+        self.assertEqual(
+            point.GetSpatialReference().ExportToWkt(), original_spatial_reference
+        )
+
     def test_bottom_left_point_with_GRS80(self):
         # Same as test_bottom_left_point(), but with a different reference system,
         # GRS80; the result should be the same.
@@ -626,3 +634,23 @@ class FilenameWithDateFormatTestCase(TestCase):
         self.assertEqual(
             format.get_date("myprefix-2019-8-4.tif"), dt.datetime(2019, 8, 4)
         )
+
+
+class PassepartoutPointTestCase(TestCase):
+    def test_transform_does_not_modify_srid_of_gdal_point(self):
+        pppoint = hspatial.PassepartoutPoint(
+            hspatial.coordinates2point(324651, 4205742, srid=2100)
+        )
+        original_spatial_reference = pppoint.point.GetSpatialReference().ExportToWkt()
+        sr = osr.SpatialReference()
+        sr.ImportFromEPSG(4326)
+        pppoint.transform_to(sr.ExportToWkt())
+        self.assertEqual(
+            pppoint.point.GetSpatialReference().ExportToWkt(),
+            original_spatial_reference,
+        )
+
+    def test_transform_does_not_modify_srid_of_geodjango_point(self):
+        pppoint = hspatial.PassepartoutPoint(GeoDjangoPoint(324651, 4205742, srid=2100))
+        pppoint.transform_to(4326)
+        self.assertEqual(pppoint.point.srid, 2100)
