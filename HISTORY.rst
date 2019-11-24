@@ -2,6 +2,12 @@
 History
 =======
 
+1.2.2 (2019-11-24)
+==================
+
+- Fixed a bug where extract_point_from_raster() was modifying the point
+  passed to it.
+
 1.2.1 (2019-10-23)
 ==================
 

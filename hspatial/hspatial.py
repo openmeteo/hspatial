@@ -201,16 +201,30 @@ class PassepartoutPoint:
         self.point = point
 
     def transform_to(self, target_srs_wkt):
+        point = self.clone(self.point)
         if isinstance(self.point, GeoDjangoPoint):
-            source_srs = self.point.srs or SpatialReference(4326)
+            source_srs = point.srs or SpatialReference(4326)
             ct = CoordTransform(source_srs, SpatialReference(target_srs_wkt))
-            return self.point.transform(ct)
+            point.transform(ct)
+            return PassepartoutPoint(point)
         else:
-            point_sr = self.point.GetSpatialReference()
+            point_sr = point.GetSpatialReference()
             raster_sr = osr.SpatialReference()
             raster_sr.ImportFromWkt(target_srs_wkt)
             transform = osr.CoordinateTransformation(point_sr, raster_sr)
-            return self.point.Transform(transform)
+            point.Transform(transform)
+            return PassepartoutPoint(point)
+
+    def clone(self, original_point):
+        if isinstance(original_point, GeoDjangoPoint):
+            return GeoDjangoPoint(
+                original_point.x, original_point.y, original_point.srid
+            )
+        else:
+            point = ogr.Geometry(ogr.wkbPoint)
+            point.AddPoint(original_point.GetX(), original_point.GetY())
+            point.AssignSpatialReference(original_point.GetSpatialReference())
+            return point
 
     @property
     def x(self):
@@ -234,7 +248,7 @@ def extract_point_from_raster(point, data_source, band_number=1):
     # Convert point co-ordinates so that they are in same projection as raster
     target_srs_wkt = data_source.GetProjection()
     try:
-        pppoint.transform_to(target_srs_wkt)
+        pppoint = pppoint.transform_to(target_srs_wkt)
     except GDALException:
         raise RuntimeError("Couldn't convert point to raster's CRS")
     infinities = (float("inf"), float("-inf"))
