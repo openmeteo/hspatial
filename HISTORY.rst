@@ -2,6 +2,11 @@
 History
 =======
 
+1.3.0 (2019-12-12)
+==================
+
+- Added option default_time to PointTimeseries.
+
 1.2.2 (2019-11-24)
 ==================
 

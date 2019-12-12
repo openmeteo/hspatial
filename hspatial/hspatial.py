@@ -280,6 +280,7 @@ class PointTimeseries:
         self.date_fmt = kwargs.pop("date_fmt", None)
         self.start_date = kwargs.pop("start_date", None)
         self.end_date = kwargs.pop("end_date", None)
+        self.default_time = kwargs.pop("default_time", dt.time(0, 0))
         self.filenames = self._get_filenames(filenames)
 
     def _get_filenames(self, filenames):
@@ -301,8 +302,7 @@ class PointTimeseries:
         for filename in self.filenames:
             f = gdal.Open(filename)
             try:
-                isostring = f.GetMetadata()["TIMESTAMP"]
-                timestamp = iso8601.parse_date(isostring, default_timezone=None)
+                timestamp = self._get_timestamp(f)
                 value = extract_point_from_raster(self.point, f)
                 result.data.loc[timestamp, "value"] = value
                 result.data.loc[timestamp, "flags"] = ""
@@ -310,6 +310,13 @@ class PointTimeseries:
                 f = None
         result.data = result.data.sort_index()
         return result
+
+    def _get_timestamp(self, f):
+        isostring = f.GetMetadata()["TIMESTAMP"]
+        timestamp = iso8601.parse_date(isostring, default_timezone=None)
+        if len(isostring) <= 10:
+            timestamp = dt.datetime.combine(timestamp.date(), self.default_time)
+        return timestamp
 
     def get_cached(self, dest, force=False, version=4):
         assert self.prefix

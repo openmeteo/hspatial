@@ -458,44 +458,8 @@ class ExtractPointFromRasterWhenOutsideCRSLimitsTestCase(TestCase):
 
 
 class SetupTestRastersMixin:
-    def _setup_test_rasters(self):
-        # Create three rasters
-        filename = os.path.join(self.tempdir, "test-2014-11-21-16-1.tif")
-        setup_test_raster(
-            filename,
-            np.array([[1.1, 1.2, 1.3], [2.1, 2.2, 2.3], [3.1, 3.2, 3.3]]),
-            dt.datetime(2014, 11, 21, 16, 1),
-        )
-        filename = os.path.join(self.tempdir, "test-2014-11-22-16-1.tif")
-        setup_test_raster(
-            filename,
-            np.array([[11.1, 12.1, 13.1], [21.1, 22.1, 23.1], [31.1, 32.1, 33.1]]),
-            dt.datetime(2014, 11, 22, 16, 1),
-        )
-        filename = os.path.join(self.tempdir, "test-2014-11-23-16-1.tif")
-        setup_test_raster(
-            filename,
-            np.array(
-                [[110.1, 120.1, 130.1], [210.1, 220.1, 230.1], [310.1, 320.1, 330.1]]
-            ),
-            dt.datetime(2014, 11, 23, 16, 1),
-        )
+    include_time = True
 
-    def _check_against_expected(self, ts):
-        expected = pd.DataFrame(
-            data={"value": [2.2, 22.1, 220.1], "flags": ["", "", ""]},
-            index=[
-                dt.datetime(2014, 11, 21, 16, 1),
-                dt.datetime(2014, 11, 22, 16, 1),
-                dt.datetime(2014, 11, 23, 16, 1),
-            ],
-            columns=["value", "flags"],
-        )
-        expected.index.name = "date"
-        pd.testing.assert_frame_equal(ts.data, expected)
-
-
-class PointTimeseriesGetTestCase(TestCase, SetupTestRastersMixin):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         self._setup_test_rasters()
@@ -503,6 +467,60 @@ class PointTimeseriesGetTestCase(TestCase, SetupTestRastersMixin):
     def tearDown(self):
         shutil.rmtree(self.tempdir)
 
+    def _setup_test_rasters(self):
+        self._setup_raster(
+            dt.date(2014, 11, 21),
+            np.array([[1.1, 1.2, 1.3], [2.1, 2.2, 2.3], [3.1, 3.2, 3.3]]),
+        )
+        self._setup_raster(
+            dt.date(2014, 11, 22),
+            np.array([[11.1, 12.1, 13.1], [21.1, 22.1, 23.1], [31.1, 32.1, 33.1]]),
+        )
+        self._setup_raster(
+            dt.date(2014, 11, 23),
+            np.array(
+                [[110.1, 120.1, 130.1], [210.1, 220.1, 230.1], [310.1, 320.1, 330.1]]
+            ),
+        )
+
+    def _setup_raster(self, date, value):
+        filename = self._create_filename(date)
+        timestamp = self._create_timestamp(date)
+        setup_test_raster(filename, value, timestamp)
+
+    def _create_filename(self, date):
+        result = date.strftime("test-%Y-%m-%d")
+        if self.include_time:
+            result += "-16-1"
+        result += ".tif"
+        return os.path.join(self.tempdir, result)
+
+    def _create_timestamp(self, date):
+        if self.include_time:
+            return dt.datetime.combine(date, dt.time(16, 1))
+        else:
+            return date
+
+    def _check_against_expected(self, ts):
+        expected = pd.DataFrame(
+            data={"value": [2.2, 22.1, 220.1], "flags": ["", "", ""]},
+            index=self.expected_index,
+            columns=["value", "flags"],
+        )
+        expected.index.name = "date"
+        pd.testing.assert_frame_equal(ts.data, expected)
+
+    @property
+    def expected_index(self):
+        hour, minute = self.include_time and (16, 1) or (23, 58)
+        return [
+            dt.datetime(2014, 11, 21, hour, minute),
+            dt.datetime(2014, 11, 22, hour, minute),
+            dt.datetime(2014, 11, 23, hour, minute),
+        ]
+
+
+class PointTimeseriesGetTestCase(SetupTestRastersMixin, TestCase):
     def test_with_list_of_files(self):
         # Use co-ordinates almost to the center of the four lower left points, and only
         # a little bit towards the center.
@@ -529,16 +547,47 @@ class PointTimeseriesGetTestCase(TestCase, SetupTestRastersMixin):
         self._check_against_expected(ts)
 
 
-class PointTimeseriesGetCachedTestCase(TestCase, SetupTestRastersMixin):
+class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
+    include_time = False
+
+    def test_with_list_of_files(self):
+        # Use co-ordinates almost to the center of the four lower left points, and only
+        # a little bit towards the center.
+        point = hspatial.coordinates2point(22.00501, 37.98501)
+        filenames = [
+            os.path.join(self.tempdir, "test-2014-11-22.tif"),
+            os.path.join(self.tempdir, "test-2014-11-21.tif"),
+            os.path.join(self.tempdir, "test-2014-11-23.tif"),
+        ]
+        ts = hspatial.PointTimeseries(
+            point, filenames=filenames, default_time=dt.time(23, 58)
+        ).get()
+        self._check_against_expected(ts)
+
+    def test_with_prefix(self):
+        # Same as test_with_list_of_files(), but with prefix.
+        point = hspatial.coordinates2point(22.00501, 37.98501)
+        prefix = os.path.join(self.tempdir, "test")
+        ts = hspatial.PointTimeseries(
+            point, prefix=prefix, default_time=dt.time(23, 58)
+        ).get()
+        self._check_against_expected(ts)
+
+    def test_with_prefix_and_geodjango(self):
+        point = GeoDjangoPoint(22.00501, 37.98501)
+        prefix = os.path.join(self.tempdir, "test")
+        ts = hspatial.PointTimeseries(
+            point, prefix=prefix, default_time=dt.time(23, 58)
+        ).get()
+        self._check_against_expected(ts)
+
+
+class PointTimeseriesGetCachedTestCase(SetupTestRastersMixin, TestCase):
     def setUp(self):
-        self.tempdir = tempfile.mkdtemp()
-        self._setup_test_rasters()
+        super().setUp()
         self.point = hspatial.coordinates2point(22.00501, 37.98501)
         self.prefix = os.path.join(self.tempdir, "test")
         self.dest = os.path.join(self.tempdir, "dest.hts")
-
-    def tearDown(self):
-        shutil.rmtree(self.tempdir)
 
     def test_result(self):
         result = hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(

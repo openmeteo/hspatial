@@ -107,7 +107,7 @@ API
    If the *point* does not fall in the raster, :exc:`RuntimeError` is
    raised.
 
-.. class:: hspatial.PointTimeseries(point, filenames=None, prefix=None, date_fmt=None, start_date=None, end_date=None)
+.. class:: hspatial.PointTimeseries(point, filenames=None, prefix=None, date_fmt=None, start_date=None, end_date=None, default_time=dt.time(0, 0))
 
    A class that can extract a point timeseries from a set of rasters.
 
@@ -138,6 +138,9 @@ API
    time series is read from the rasters. This is only valid when the
    class has been initialized with a prefix (not with a list of
    filenames).
+
+   If the ``TIMESTAMP`` GDAL metadata item of the raster does not
+   contain a time, then *default_time* is assumed.
 
    .. method:: hspatial.PointTimeseries.get()
 
