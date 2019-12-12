@@ -16,9 +16,9 @@ extensions = ["sphinx.ext.autodoc", "sphinx.ext.viewcode"]
 templates_path = ["_templates"]
 source_suffix = ".rst"
 master_doc = "index"
-project = u"hspatial"
-copyright = u"2019, Antonis Christofides"
-author = u"Antonis Christofides"
+project = "hspatial"
+copyright = "2019, Antonis Christofides"
+author = "Antonis Christofides"
 version = get_version()
 release = version
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
@@ -31,8 +31,8 @@ latex_documents = [
     (
         master_doc,
         "hspatial.tex",
-        u"hspatial Documentation",
-        u"Antonis Christofides",
+        "hspatial Documentation",
+        "Antonis Christofides",
         "manual",
     )
 ]
@@ -40,7 +40,7 @@ texinfo_documents = [
     (
         master_doc,
         "hspatial",
-        u"hspatial Documentation",
+        "hspatial Documentation",
         author,
         "hspatial",
         "One line description of project.",
