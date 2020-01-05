@@ -147,14 +147,13 @@ class App:
         """
         Determine date_fmt based on time series time step.
         """
-        minutes, months = map(int, self._time_step.split(","))
-        if minutes and (minutes < 1440):
+        if self._time_step.endswith("min") or self._time_step.endswith("H"):
             return "%Y-%m-%d %H:%M%z"
-        if minutes and (minutes >= 1440):
+        elif self._time_step.endswith("D"):
             return "%Y-%m-%d"
-        if months and (months < 12):
+        elif self._time_step.endswith("M"):
             return "%Y-%m"
-        if months and (months >= 12):
+        elif self._time_step.endswith("Y"):
             return "%Y"
         raise click.ClickException("Can't use time step " + str(self._time_step))
 

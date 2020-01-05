@@ -501,44 +501,44 @@ class AppTestCase(TestCase):
 
         # Ten-minute
         with open(self.filenames[0], "w") as f:
-            f.write("Time_step=10,0\n\n")
+            f.write("Time_step=10min\n\n")
         with open(self.filenames[1], "w") as f:
-            f.write("Time_step=10,0\n\n")
+            f.write("Time_step=10min\n\n")
         self.assertEqual(application._date_fmt, "%Y-%m-%d %H:%M%z")
 
         # Hourly
         with open(self.filenames[0], "w") as f:
-            f.write("Time_step=60,0\n\n")
+            f.write("Time_step=H\n\n")
         with open(self.filenames[1], "w") as f:
-            f.write("Time_step=60,0\n\n")
+            f.write("Time_step=H\n\n")
         self.assertEqual(application._date_fmt, "%Y-%m-%d %H:%M%z")
 
         # Daily
         with open(self.filenames[0], "w") as f:
-            f.write("Time_step=1440,0\n\n")
+            f.write("Time_step=D\n\n")
         with open(self.filenames[1], "w") as f:
-            f.write("Time_step=1440,0\n\n")
+            f.write("Time_step=D\n\n")
         self.assertEqual(application._date_fmt, "%Y-%m-%d")
 
         # Monthly
         with open(self.filenames[0], "w") as f:
-            f.write("Time_step=0,1\n\n")
+            f.write("Time_step=M\n\n")
         with open(self.filenames[1], "w") as f:
-            f.write("Time_step=0,1\n\n")
+            f.write("Time_step=M\n\n")
         self.assertEqual(application._date_fmt, "%Y-%m")
 
         # Annual
         with open(self.filenames[0], "w") as f:
-            f.write("Time_step=0,12\n\n")
+            f.write("Time_step=Y\n\n")
         with open(self.filenames[1], "w") as f:
-            f.write("Time_step=0,12\n\n")
+            f.write("Time_step=Y\n\n")
         self.assertEqual(application._date_fmt, "%Y")
 
         # Inconsistent
         with open(self.filenames[0], "w") as f:
-            f.write("Time_step=10,0\n\n")
+            f.write("Time_step=10min\n\n")
         with open(self.filenames[1], "w") as f:
-            f.write("Time_step=60,0\n\n")
+            f.write("Time_step=60min\n\n")
         with self.assertRaises(click.ClickException):
             application._date_fmt
 

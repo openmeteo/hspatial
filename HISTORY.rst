@@ -2,6 +2,11 @@
 History
 =======
 
+2.0.0 (2020-01-05)
+==================
+
+- Now uses version 5 of hts file (i.e. different time step notation).
+
 1.3.0 (2019-12-12)
 ==================
 
