@@ -156,14 +156,17 @@ def h_integrate(
         return
 
     # Read the time series values and add the 'value' attribute to
-    # stations_layer
+    # stations_layer. Also determine the unit of measurement.
     stations_layer.CreateField(ogr.FieldDefn("value", ogr.OFTReal))
     input_files = []
+    unit_of_measurement = None
     stations_layer.ResetReading()
     for station in stations_layer:
         filename = station.GetField("filename")
         with open(filename, newline="\n") as f:
             t = HTimeseries(f)
+        if unit_of_measurement is None and hasattr(t, "unit"):
+            unit_of_measurement = t.unit
         try:
             value = t.data.loc[date.replace(tzinfo=None), "value"]
         except KeyError:
@@ -181,6 +184,7 @@ def h_integrate(
     )
     output.SetMetadataItem("TIMESTAMP", date.strftime(date_fmt))
     output.SetMetadataItem("INPUT_FILES", "\n".join(input_files))
+    output.SetMetadataItem("UNIT", unit_of_measurement)
 
     try:
         # Set geotransform and projection in the output data source
@@ -303,6 +307,7 @@ class PointTimeseries:
             f = gdal.Open(filename)
             try:
                 timestamp = self._get_timestamp(f)
+                self._get_unit_of_measurement(f, result)
                 value = extract_point_from_raster(self.point, f)
                 result.data.loc[timestamp, "value"] = value
                 result.data.loc[timestamp, "flags"] = ""
@@ -317,6 +322,13 @@ class PointTimeseries:
         if len(isostring) <= 10:
             timestamp = dt.datetime.combine(timestamp.date(), self.default_time)
         return timestamp
+
+    def _get_unit_of_measurement(self, f, ahtimeseries):
+        if hasattr(ahtimeseries, "unit"):
+            return
+        unit = f.GetMetadataItem("UNIT")
+        if unit is not None:
+            ahtimeseries.unit = unit
 
     def get_cached(self, dest, force=False, version=4):
         assert self.prefix

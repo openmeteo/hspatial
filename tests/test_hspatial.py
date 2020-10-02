@@ -206,6 +206,7 @@ class HIntegrateTestCase(TestCase):
         ]
         with open(self.filenames[0], "w") as f:
             f.write(
+                "Unit=microchips\n"
                 "Timezone=EET (UTC+0200)\n"
                 "Location=19.557285 0.0473312 2100\n"  # GGRS87=5000 5000
                 "\n"
@@ -215,6 +216,7 @@ class HIntegrateTestCase(TestCase):
             )
         with open(self.filenames[1], "w") as f:
             f.write(
+                "Unit=microchips\n"
                 "Timezone=EET (UTC+0200)\n"
                 "Location=19.64689 0.04734 2100\n"  # GGRS87=15000 5000
                 "\n"
@@ -224,6 +226,7 @@ class HIntegrateTestCase(TestCase):
             )
         with open(self.filenames[2], "w") as f:
             f.write(
+                "Unit=microchips\n"
                 "Timezone=EET (UTC+0200)\n"
                 "Location=19.88886 0.12857 2100\n"  # GGRS87=42000 14000
                 "\n"
@@ -235,6 +238,7 @@ class HIntegrateTestCase(TestCase):
             # This station is missing the date required,
             # so it should not be taken into account
             f.write(
+                "Unit=microchips\n"
                 "Timezone=EET (UTC+0200)\n"
                 "Location=19.66480 0.15560 2100\n"  # GGRS87=17000 17000
                 "\n"
@@ -276,6 +280,7 @@ class HIntegrateTestCase(TestCase):
             ]
         )
         np.testing.assert_almost_equal(result, expected_result, decimal=4)
+        self.assertEqual(f.GetMetadataItem("UNIT"), "microchips")
         f = None
 
         # Wait long enough to make sure that, if we write to a file, its
@@ -486,7 +491,7 @@ class SetupTestRastersMixin:
     def _setup_raster(self, date, value):
         filename = self._create_filename(date)
         timestamp = self._create_timestamp(date)
-        setup_test_raster(filename, value, timestamp)
+        setup_test_raster(filename, value, timestamp, unit="microkernels")
 
     def _create_filename(self, date):
         result = date.strftime("test-%Y-%m-%d")
@@ -545,6 +550,12 @@ class PointTimeseriesGetTestCase(SetupTestRastersMixin, TestCase):
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(point, prefix=prefix).get()
         self._check_against_expected(ts)
+
+    def test_unit_of_measurement(self):
+        point = GeoDjangoPoint(22.00501, 37.98501)
+        prefix = os.path.join(self.tempdir, "test")
+        ts = hspatial.PointTimeseries(point, prefix=prefix).get()
+        self.assertEqual(ts.unit, "microkernels")
 
 
 class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):

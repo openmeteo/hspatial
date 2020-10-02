@@ -2,6 +2,14 @@
 History
 =======
 
+2.1.0 (2020-10-02)
+==================
+
+- h_integrate() now adds a "UNIT" metadata item to the produced raster
+  with the unit of measurement as specified in the input files.
+  Conversely, PointTimeseries reads the "UNIT" metadata item from the
+  rasters and sets it in the returned HTimeseries object.
+
 2.0.0 (2020-01-05)
 ==================
 

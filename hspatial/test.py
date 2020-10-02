@@ -2,7 +2,7 @@ import numpy as np
 from osgeo import gdal, osr
 
 
-def setup_test_raster(filename, value, timestamp=None, srid=4326):
+def setup_test_raster(filename, value, timestamp=None, srid=4326, unit=None):
     """Save value, which is an np array, to a GeoTIFF file."""
     nodata = 1e8
     value[np.isnan(value)] = nodata
@@ -10,6 +10,8 @@ def setup_test_raster(filename, value, timestamp=None, srid=4326):
     try:
         if timestamp:
             f.SetMetadataItem("TIMESTAMP", timestamp.isoformat())
+        if unit:
+            f.SetMetadataItem("UNIT", unit)
         if srid == 4326:
             f.SetGeoTransform((22.0, 0.01, 0, 38.0, 0, -0.01))
         elif srid == 2100:
