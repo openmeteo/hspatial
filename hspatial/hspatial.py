@@ -263,7 +263,7 @@ def extract_point_from_raster(point, data_source, band_number=1):
     forward_transform = Affine.from_gdal(*data_source.GetGeoTransform())
     reverse_transform = ~forward_transform
     px, py = reverse_transform * (pppoint.x, pppoint.y)
-    px, py = int(px + 0.5), int(py + 0.5)
+    px, py = int(px), int(py)
 
     # Extract pixel value
     band = data_source.GetRasterBand(band_number)

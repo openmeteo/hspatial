@@ -370,25 +370,25 @@ class ExtractPointFromRasterTestCase(TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_top_left_point(self):
-        point = hspatial.coordinates2point(22.0, 38.0)
+        point = hspatial.coordinates2point(22.005, 37.995)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 1.1, places=2
         )
 
     def test_top_left_point_as_geodjango(self):
-        point = GeoDjangoPoint(22.0, 38.0)
+        point = GeoDjangoPoint(22.005, 37.995)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 1.1, places=2
         )
 
     def test_top_middle_point(self):
-        point = hspatial.coordinates2point(22.01, 38.0)
+        point = hspatial.coordinates2point(22.015, 37.995)
         self.assertTrue(math.isnan(hspatial.extract_point_from_raster(point, self.fp)))
 
     def test_middle_point(self):
-        # We use co-ordinates almost to the center of the four lower left points, and
+        # We use co-ordinates almost to the common corner of the four lower left points,
         # only a little bit towards the center.
-        point = hspatial.coordinates2point(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.01001, 37.98001)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
         )
@@ -396,7 +396,7 @@ class ExtractPointFromRasterTestCase(TestCase):
     def test_bottom_left_point(self):
         # Use almost exactly same point as test_middle_point(), only slightly altered
         # so that we get bottom left point instead.
-        point = hspatial.coordinates2point(22.00499, 37.98499)
+        point = hspatial.coordinates2point(22.00999, 37.97999)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 3.1, places=2
         )
@@ -404,13 +404,13 @@ class ExtractPointFromRasterTestCase(TestCase):
     def test_middle_point_with_GRS80(self):
         # Same as test_middle_point(), but with a different reference system, GRS80; the
         # result should be the same.
-        point = hspatial.coordinates2point(324651, 4205742, srid=2100)
+        point = hspatial.coordinates2point(325077, 4205177, srid=2100)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
         )
 
     def test_does_not_modify_srid_of_point(self):
-        point = hspatial.coordinates2point(324651, 4205742, srid=2100)
+        point = hspatial.coordinates2point(325077, 4205177, srid=2100)
         original_spatial_reference = point.GetSpatialReference().ExportToWkt()
         hspatial.extract_point_from_raster(point, self.fp)
         self.assertEqual(
@@ -420,7 +420,7 @@ class ExtractPointFromRasterTestCase(TestCase):
     def test_bottom_left_point_with_GRS80(self):
         # Same as test_bottom_left_point(), but with a different reference system,
         # GRS80; the result should be the same.
-        point = hspatial.coordinates2point(324648, 4205739, srid=2100)
+        point = hspatial.coordinates2point(324076, 4205176, srid=2100)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 3.1, places=2
         )
@@ -527,9 +527,9 @@ class SetupTestRastersMixin:
 
 class PointTimeseriesGetTestCase(SetupTestRastersMixin, TestCase):
     def test_with_list_of_files(self):
-        # Use co-ordinates almost to the center of the four lower left points, and only
-        # a little bit towards the center.
-        point = hspatial.coordinates2point(22.00501, 37.98501)
+        # Use co-ordinates almost to the common corner of the four lower left points,
+        # and only a little bit towards the center.
+        point = hspatial.coordinates2point(22.01001, 37.98001)
         filenames = [
             os.path.join(self.tempdir, "test-2014-11-22-16-1.tif"),
             os.path.join(self.tempdir, "test-2014-11-21-16-1.tif"),
@@ -540,19 +540,19 @@ class PointTimeseriesGetTestCase(SetupTestRastersMixin, TestCase):
 
     def test_with_prefix(self):
         # Same as test_with_list_of_files(), but with prefix.
-        point = hspatial.coordinates2point(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(point, prefix=prefix).get()
         self._check_against_expected(ts)
 
     def test_with_prefix_and_geodjango(self):
-        point = GeoDjangoPoint(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(point, prefix=prefix).get()
         self._check_against_expected(ts)
 
     def test_unit_of_measurement(self):
-        point = GeoDjangoPoint(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(point, prefix=prefix).get()
         self.assertEqual(ts.unit, "microkernels")
@@ -564,7 +564,7 @@ class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
     def test_with_list_of_files(self):
         # Use co-ordinates almost to the center of the four lower left points, and only
         # a little bit towards the center.
-        point = hspatial.coordinates2point(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.01001, 37.98001)
         filenames = [
             os.path.join(self.tempdir, "test-2014-11-22.tif"),
             os.path.join(self.tempdir, "test-2014-11-21.tif"),
@@ -577,7 +577,7 @@ class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
 
     def test_with_prefix(self):
         # Same as test_with_list_of_files(), but with prefix.
-        point = hspatial.coordinates2point(22.00501, 37.98501)
+        point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(
             point, prefix=prefix, default_time=dt.time(23, 58)
@@ -585,7 +585,7 @@ class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
         self._check_against_expected(ts)
 
     def test_with_prefix_and_geodjango(self):
-        point = GeoDjangoPoint(22.00501, 37.98501)
+        point = GeoDjangoPoint(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(
             point, prefix=prefix, default_time=dt.time(23, 58)
@@ -596,7 +596,7 @@ class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
 class PointTimeseriesGetCachedTestCase(SetupTestRastersMixin, TestCase):
     def setUp(self):
         super().setUp()
-        self.point = hspatial.coordinates2point(22.00501, 37.98501)
+        self.point = hspatial.coordinates2point(22.01001, 37.98001)
         self.prefix = os.path.join(self.tempdir, "test")
         self.dest = os.path.join(self.tempdir, "dest.hts")
 

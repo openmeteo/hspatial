@@ -2,6 +2,12 @@
 History
 =======
 
+2.1.1 (2021-01-05)
+==================
+
+- Fixed an error in extract_point_from_raster(). It was sometimes
+  picking up a neigbouring pixel instead of the correct one.
+
 2.1.0 (2020-10-02)
 ==================
 
