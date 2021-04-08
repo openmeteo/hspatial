@@ -2,6 +2,11 @@
 History
 =======
 
+2.1.2 (2021-04-08)
+==================
+
+- Updated requirements to be compatible with Django 3.
+
 2.1.1 (2021-01-05)
 ==================
 

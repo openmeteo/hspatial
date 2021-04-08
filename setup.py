@@ -18,7 +18,7 @@ requirements = [
     "affine",
     "simpletail",
     "gdal>=1.10,<3",
-    "django>=1.11,<3",
+    "django>=1.11,<4",
 ]
 
 test_requirements = []
