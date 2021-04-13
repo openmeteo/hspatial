@@ -14,11 +14,11 @@ with open("HISTORY.rst") as history_file:
 requirements = [
     "Click>=7.0",
     "iso8601",
-    "htimeseries>=2.0.3,<3",
+    "htimeseries>=3.1.1,<4",
     "affine",
     "simpletail",
     "gdal>=1.10,<3",
-    "django>=1.11,<4",
+    "django>=2.2,<4",
 ]
 
 test_requirements = []
