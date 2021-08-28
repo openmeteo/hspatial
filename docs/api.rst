@@ -160,6 +160,8 @@ API
          # Specify that the point uses the WGS84 reference system
          sr = osr.SpatialReference()
          sr.ImportFromEPSG(4326)
+         if int(gdal.__version__.split(".")[0]) > 2:
+             sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
          point.AssignSpatialReference(sr)
 
          # Point's co-ordinates (in WGS84 it's latitude and longitude)

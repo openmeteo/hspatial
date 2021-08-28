@@ -18,6 +18,8 @@ def setup_test_raster(filename, value, timestamp=None, srid=4326, unit=None):
             f.SetGeoTransform((320000, 1000, 0, 4210000, 0, -1000))
         sr = osr.SpatialReference()
         sr.ImportFromEPSG(srid)
+        if int(gdal.__version__.split(".")[0]) > 2:
+            sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         f.SetProjection(sr.ExportToWkt())
         f.GetRasterBand(1).SetNoDataValue(nodata)
         f.GetRasterBand(1).WriteArray(value)
