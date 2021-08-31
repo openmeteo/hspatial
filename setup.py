@@ -17,7 +17,7 @@ requirements = [
     "htimeseries>=3.1.1,<4",
     "affine",
     "simpletail",
-    "gdal>=1.10,<3",
+    "gdal>=1.10,<4",
     "django>=2.2,<4",
 ]
 

@@ -2,10 +2,15 @@
 History
 =======
 
+2.1.4 (2021-08-31)
+==================
+
+- Added compatibility with gdal 3.
+
 2.1.3 (2021-04-13)
 ==================
 
-- Updated dependencies (essentially htimeseries)
+- Updated dependencies (essentially htimeseries).
 
 2.1.2 (2021-04-08)
 ==================

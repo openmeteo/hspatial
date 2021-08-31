@@ -22,6 +22,8 @@ def coordinates2point(x, y, srid=4326):
     point = ogr.Geometry(ogr.wkbPoint)
     sr = osr.SpatialReference()
     sr.ImportFromEPSG(srid)
+    if int(gdal.__version__.split(".")[0]) > 2:
+        sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     point.AssignSpatialReference(sr)
     point.AddPoint(x, y)
     return point
@@ -75,6 +77,9 @@ def create_ogr_layer_from_timeseries(filenames, epsg, data_source):
     source_sr.ImportFromEPSG(4326)
     target_sr = osr.SpatialReference()
     target_sr.ImportFromEPSG(epsg)
+    if int(gdal.__version__.split(".")[0]) > 2:
+        source_sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        target_sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     transform = osr.CoordinateTransformation(source_sr, target_sr)
 
     layer = data_source.CreateLayer("stations", target_sr)
@@ -208,6 +213,10 @@ class PassepartoutPoint:
         point = self.clone(self.point)
         if isinstance(self.point, GeoDjangoPoint):
             source_srs = point.srs or SpatialReference(4326)
+            try:
+                source_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+            except AttributeError:
+                pass
             ct = CoordTransform(source_srs, SpatialReference(target_srs_wkt))
             point.transform(ct)
             return PassepartoutPoint(point)
@@ -215,6 +224,9 @@ class PassepartoutPoint:
             point_sr = point.GetSpatialReference()
             raster_sr = osr.SpatialReference()
             raster_sr.ImportFromWkt(target_srs_wkt)
+            if int(gdal.__version__.split(".")[0]) > 2:
+                point_sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+                raster_sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
             transform = osr.CoordinateTransformation(point_sr, raster_sr)
             point.Transform(transform)
             return PassepartoutPoint(point)
