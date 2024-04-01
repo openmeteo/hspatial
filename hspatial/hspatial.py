@@ -15,7 +15,7 @@ from osgeo import gdal, ogr, osr
 
 gdal.UseExceptions()
 
-NODATAVALUE = -(2.0 ** 127)
+NODATAVALUE = -(2.0**127)
 
 
 def coordinates2point(x, y, srid=4326):
