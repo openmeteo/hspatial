@@ -2,6 +2,19 @@
 History
 =======
 
+3.0.0 (2024-04-01)
+==================
+
+- Now requires htimeseries 6. This recent htimeseries version works with
+  aware time zones, and hspatial, which works with naive, internally
+  handles them as UTC.
+
+2.1.6 (2024-04-01)
+==================
+
+- Reverted previous change, which had not been properly tested and
+  doesn't work; in effect 2.1.6 is the same as 2.1.4.
+
 2.1.5 (2024-03-31)
 ==================
 

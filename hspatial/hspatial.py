@@ -86,7 +86,7 @@ def create_ogr_layer_from_timeseries(filenames, epsg, data_source):
     layer.CreateField(ogr.FieldDefn("filename", ogr.OFTString))
     for filename in filenames:
         with open(filename, newline="\n") as f:
-            ts = HTimeseries(f)
+            ts = HTimeseries(f, default_tzinfo=dt.UTC)
         point = ogr.Geometry(ogr.wkbPoint)
         point.AddPoint(ts.location["abscissa"], ts.location["ordinate"])
         point.Transform(transform)
@@ -140,7 +140,7 @@ def _needs_calculation(output_filename, date, stations_layer):
         with open(filename, newline="\n") as f:
             t = HTimeseries(f)
         try:
-            value = t.data.loc[date.replace(tzinfo=None), "value"]
+            value = t.data.loc[date, "value"]
             if not isnan(value):
                 return True
         except KeyError:
@@ -173,7 +173,7 @@ def h_integrate(
         if unit_of_measurement is None and hasattr(t, "unit"):
             unit_of_measurement = t.unit
         try:
-            value = t.data.loc[date.replace(tzinfo=None), "value"]
+            value = t.data.loc[date, "value"]
         except KeyError:
             value = np.nan
         station.SetField("value", value)
@@ -296,7 +296,11 @@ class PointTimeseries:
         self.date_fmt = kwargs.pop("date_fmt", None)
         self.start_date = kwargs.pop("start_date", None)
         self.end_date = kwargs.pop("end_date", None)
-        self.default_time = kwargs.pop("default_time", dt.time(0, 0))
+        self.default_time = kwargs.pop("default_time", dt.time(0, 0, tzinfo=dt.UTC))
+        if self.start_date:
+            self.start_date = self.start_date.replace(tzinfo=dt.UTC)
+        if self.end_date:
+            self.end_date = self.end_date.replace(tzinfo=dt.UTC)
         self.filenames = self._get_filenames(filenames)
 
     def _get_filenames(self, filenames):
@@ -330,7 +334,7 @@ class PointTimeseries:
 
     def _get_timestamp(self, f):
         isostring = f.GetMetadata()["TIMESTAMP"]
-        timestamp = iso8601.parse_date(isostring, default_timezone=None)
+        timestamp = iso8601.parse_date(isostring, default_timezone=dt.UTC)
         if len(isostring) <= 10:
             timestamp = dt.datetime.combine(timestamp.date(), self.default_time)
         return timestamp
@@ -359,7 +363,7 @@ class PointTimeseries:
 
     def _get_timeseries_if_file_is_up_to_date_else_none(self, dest):
         with open(dest, "r", newline="") as f:
-            ts = HTimeseries(f)
+            ts = HTimeseries(f, default_tzinfo=dt.UTC)
         for filename in self.filenames:
             if not self.filename_format.get_date(filename) in ts.data.index:
                 return None
@@ -374,7 +378,7 @@ class FilenameWithDateFormat:
     def get_date(self, filename):
         datestr = self._extract_datestr(filename)
         self._ensure_we_have_date_fmt(datestr)
-        return dt.datetime.strptime(datestr, self.date_fmt)
+        return dt.datetime.strptime(datestr, self.date_fmt).replace(tzinfo=dt.UTC)
 
     def _ensure_we_have_date_fmt(self, datestr):
         if self.date_fmt is not None:
