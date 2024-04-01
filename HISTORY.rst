@@ -2,6 +2,12 @@
 History
 =======
 
+2.1.6 (2024-04-01)
+==================
+
+- Reverted previous change, which had not been properly tested and
+  doesn't work; in effect 2.1.6 is the same as 2.1.4.
+
 2.1.5 (2024-03-31)
 ==================
 

@@ -14,7 +14,7 @@ with open("HISTORY.rst") as history_file:
 requirements = [
     "Click>=7.0",
     "iso8601",
-    "htimeseries>=3.1.1,<7",
+    "htimeseries>=3.1.1,<4",
     "affine",
     "simpletail",
     "gdal>=1.10,<4",
