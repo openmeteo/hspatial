@@ -2,6 +2,12 @@
 History
 =======
 
+4.0.0 (2024-04-14)
+==================
+
+- Now works with htimeseries 6 and 7.
+- PointTimeseries() has changed in that default_time must be aware.
+
 3.0.0 (2024-04-01)
 ==================
 

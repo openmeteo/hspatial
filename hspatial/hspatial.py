@@ -86,7 +86,9 @@ def create_ogr_layer_from_timeseries(filenames, epsg, data_source):
     layer.CreateField(ogr.FieldDefn("filename", ogr.OFTString))
     for filename in filenames:
         with open(filename, newline="\n") as f:
-            ts = HTimeseries(f, default_tzinfo=dt.UTC)
+            # The default_tzinfo doesn't matter because we don't care about the data,
+            # we only use the location.
+            ts = HTimeseries(f, default_tzinfo=dt.timezone.utc)
         point = ogr.Geometry(ogr.wkbPoint)
         point.AddPoint(ts.location["abscissa"], ts.location["ordinate"])
         point.Transform(transform)
@@ -296,18 +298,24 @@ class PointTimeseries:
         self.date_fmt = kwargs.pop("date_fmt", None)
         self.start_date = kwargs.pop("start_date", None)
         self.end_date = kwargs.pop("end_date", None)
-        self.default_time = kwargs.pop("default_time", dt.time(0, 0, tzinfo=dt.UTC))
-        if self.start_date:
-            self.start_date = self.start_date.replace(tzinfo=dt.UTC)
-        if self.end_date:
-            self.end_date = self.end_date.replace(tzinfo=dt.UTC)
+        self.default_time = kwargs.pop(
+            "default_time", dt.time(0, 0, tzinfo=dt.timezone.utc)
+        )
+        if self.default_time.tzinfo is None:
+            raise TypeError("default_time must be aware")
+        if self.start_date and self.start_date.tzinfo is None:
+            self.start_date = self.start_date.replace(tzinfo=self.default_time.tzinfo)
+        if self.end_date and self.end_date.tzinfo is None:
+            self.end_date = self.end_date.replace(tzinfo=self.default_time.tzinfo)
         self.filenames = self._get_filenames(filenames)
 
     def _get_filenames(self, filenames):
         if self.prefix is None:
             return filenames
         filenames = glob(self.prefix + "-*.tif")
-        self.filename_format = FilenameWithDateFormat(self.prefix, self.date_fmt)
+        self.filename_format = FilenameWithDateFormat(
+            self.prefix, date_fmt=self.date_fmt, tzinfo=self.default_time.tzinfo
+        )
         result = []
         for filename in filenames:
             date = self.filename_format.get_date(filename)
@@ -318,7 +326,7 @@ class PointTimeseries:
         return result
 
     def get(self):
-        result = HTimeseries()
+        result = HTimeseries(default_tzinfo=self.default_time.tzinfo)
         for filename in self.filenames:
             f = gdal.Open(filename)
             try:
@@ -334,7 +342,9 @@ class PointTimeseries:
 
     def _get_timestamp(self, f):
         isostring = f.GetMetadata()["TIMESTAMP"]
-        timestamp = iso8601.parse_date(isostring, default_timezone=dt.UTC)
+        timestamp = iso8601.parse_date(
+            isostring, default_timezone=self.default_time.tzinfo
+        )
         if len(isostring) <= 10:
             timestamp = dt.datetime.combine(timestamp.date(), self.default_time)
         return timestamp
@@ -363,7 +373,7 @@ class PointTimeseries:
 
     def _get_timeseries_if_file_is_up_to_date_else_none(self, dest):
         with open(dest, "r", newline="") as f:
-            ts = HTimeseries(f, default_tzinfo=dt.UTC)
+            ts = HTimeseries(f, default_tzinfo=self.default_time.tzinfo)
         for filename in self.filenames:
             if not self.filename_format.get_date(filename) in ts.data.index:
                 return None
@@ -371,14 +381,15 @@ class PointTimeseries:
 
 
 class FilenameWithDateFormat:
-    def __init__(self, prefix, date_fmt=None):
+    def __init__(self, prefix, *, date_fmt=None, tzinfo):
         self.prefix = prefix
         self.date_fmt = date_fmt
+        self.tzinfo = tzinfo
 
     def get_date(self, filename):
         datestr = self._extract_datestr(filename)
         self._ensure_we_have_date_fmt(datestr)
-        return dt.datetime.strptime(datestr, self.date_fmt).replace(tzinfo=dt.UTC)
+        return dt.datetime.strptime(datestr, self.date_fmt).replace(tzinfo=self.tzinfo)
 
     def _ensure_we_have_date_fmt(self, datestr):
         if self.date_fmt is not None:

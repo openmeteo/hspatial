@@ -19,6 +19,8 @@ from hspatial.test import setup_test_raster
 
 gdal.UseExceptions()
 
+UTC_PLUS_2 = dt.timezone(dt.timedelta(hours=2))
+
 
 def add_point_to_layer(layer, x, y, value):
     p = ogr.Geometry(ogr.wkbPoint)
@@ -72,7 +74,6 @@ class IdwTestCase(TestCase):
 
 
 class IntegrateTestCase(TestCase):
-
     # The calculations for this test have been made manually in
     # data/spatial_calculations.ods, tab test_integrate_idw.
 
@@ -502,7 +503,7 @@ class SetupTestRastersMixin:
 
     def _create_timestamp(self, date):
         if self.include_time:
-            return dt.datetime.combine(date, dt.time(16, 1))
+            return dt.datetime.combine(date, dt.time(16, 1, tzinfo=UTC_PLUS_2))
         else:
             return date
 
@@ -513,15 +514,18 @@ class SetupTestRastersMixin:
             columns=["value", "flags"],
         )
         expected.index.name = "date"
-        pd.testing.assert_frame_equal(ts.data, expected)
+        self.assertEqual(
+            ts.data.index.tz.utcoffset(None), expected.index.tz.utcoffset(None)
+        )
+        pd.testing.assert_frame_equal(ts.data, expected, check_index_type=False)
 
     @property
     def expected_index(self):
         hour, minute = self.include_time and (16, 1) or (23, 58)
         return [
-            dt.datetime(2014, 11, 21, hour, minute, tzinfo=dt.UTC),
-            dt.datetime(2014, 11, 22, hour, minute, tzinfo=dt.UTC),
-            dt.datetime(2014, 11, 23, hour, minute, tzinfo=dt.UTC),
+            dt.datetime(2014, 11, 21, hour, minute, tzinfo=UTC_PLUS_2),
+            dt.datetime(2014, 11, 22, hour, minute, tzinfo=UTC_PLUS_2),
+            dt.datetime(2014, 11, 23, hour, minute, tzinfo=UTC_PLUS_2),
         ]
 
 
@@ -535,26 +539,42 @@ class PointTimeseriesGetTestCase(SetupTestRastersMixin, TestCase):
             os.path.join(self.tempdir, "test-2014-11-21-16-1.tif"),
             os.path.join(self.tempdir, "test-2014-11-23-16-1.tif"),
         ]
-        ts = hspatial.PointTimeseries(point, filenames=filenames).get()
+        ts = hspatial.PointTimeseries(
+            point, filenames=filenames, default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2)
+        ).get()
         self._check_against_expected(ts)
+
+    def test_raises_when_no_timezone(self):
+        point = hspatial.coordinates2point(22.01001, 37.98001)
+        filenames = [os.path.join(self.tempdir, "test-2014-11-22-16-1.tif")]
+        with self.assertRaises(TypeError):
+            hspatial.PointTimeseries(
+                point, filenames=filenames, default_time=dt.time(0, 0)
+            )
 
     def test_with_prefix(self):
         # Same as test_with_list_of_files(), but with prefix.
         point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
-        ts = hspatial.PointTimeseries(point, prefix=prefix).get()
+        ts = hspatial.PointTimeseries(
+            point, prefix=prefix, default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2)
+        ).get()
         self._check_against_expected(ts)
 
     def test_with_prefix_and_geodjango(self):
         point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
-        ts = hspatial.PointTimeseries(point, prefix=prefix).get()
+        ts = hspatial.PointTimeseries(
+            point, prefix=prefix, default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2)
+        ).get()
         self._check_against_expected(ts)
 
     def test_unit_of_measurement(self):
         point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
-        ts = hspatial.PointTimeseries(point, prefix=prefix).get()
+        ts = hspatial.PointTimeseries(
+            point, prefix=prefix, default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2)
+        ).get()
         self.assertEqual(ts.unit, "microkernels")
 
 
@@ -571,7 +591,7 @@ class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
             os.path.join(self.tempdir, "test-2014-11-23.tif"),
         ]
         ts = hspatial.PointTimeseries(
-            point, filenames=filenames, default_time=dt.time(23, 58, tzinfo=dt.UTC)
+            point, filenames=filenames, default_time=dt.time(23, 58, tzinfo=UTC_PLUS_2)
         ).get()
         self._check_against_expected(ts)
 
@@ -580,7 +600,7 @@ class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
         point = hspatial.coordinates2point(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(
-            point, prefix=prefix, default_time=dt.time(23, 58, tzinfo=dt.UTC)
+            point, prefix=prefix, default_time=dt.time(23, 58, tzinfo=UTC_PLUS_2)
         ).get()
         self._check_against_expected(ts)
 
@@ -588,7 +608,7 @@ class PointTimeseriesGetDailyTestCase(SetupTestRastersMixin, TestCase):
         point = GeoDjangoPoint(22.01001, 37.98001)
         prefix = os.path.join(self.tempdir, "test")
         ts = hspatial.PointTimeseries(
-            point, prefix=prefix, default_time=dt.time(23, 58, tzinfo=dt.UTC)
+            point, prefix=prefix, default_time=dt.time(23, 58, tzinfo=UTC_PLUS_2)
         ).get()
         self._check_against_expected(ts)
 
@@ -601,37 +621,57 @@ class PointTimeseriesGetCachedTestCase(SetupTestRastersMixin, TestCase):
         self.dest = os.path.join(self.tempdir, "dest.hts")
 
     def test_result(self):
-        result = hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(
-            self.dest
-        )
+        result = hspatial.PointTimeseries(
+            self.point,
+            prefix=self.prefix,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
+        ).get_cached(self.dest)
         self._check_against_expected(result)
 
     def test_file(self):
-        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
+        hspatial.PointTimeseries(
+            self.point,
+            prefix=self.prefix,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
+        ).get_cached(self.dest)
         with open(self.dest, "r", newline="\n") as f:
-            self._check_against_expected(HTimeseries(f, default_tzinfo=dt.UTC))
+            self._check_against_expected(HTimeseries(f, default_tzinfo=UTC_PLUS_2))
 
     def test_version(self):
-        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(
-            self.dest, version=2
-        )
+        hspatial.PointTimeseries(
+            self.point,
+            prefix=self.prefix,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
+        ).get_cached(self.dest, version=2)
         with open(self.dest, "r") as f:
             first_line = f.readline()
         self.assertEqual(first_line, "Version=2\n")
 
     def test_file_is_not_recreated(self):
-        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
+        hspatial.PointTimeseries(
+            self.point,
+            prefix=self.prefix,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
+        ).get_cached(self.dest)
 
         # Make existing file read-only
         os.chmod(self.dest, S_IREAD | S_IRGRP | S_IROTH)
 
         # Try again—it shouldn't try to write, therefore it shouldn't raise exception
-        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
+        hspatial.PointTimeseries(
+            self.point,
+            prefix=self.prefix,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
+        ).get_cached(self.dest)
         with open(self.dest, "r", newline="\n") as f:
-            self._check_against_expected(HTimeseries(f, default_tzinfo=dt.UTC))
+            self._check_against_expected(HTimeseries(f, default_tzinfo=UTC_PLUS_2))
 
     def test_file_is_recreated_when_out_of_date(self):
-        hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(self.dest)
+        hspatial.PointTimeseries(
+            self.point,
+            prefix=self.prefix,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
+        ).get_cached(self.dest)
         self._setup_additional_raster()
 
         # Make existing file read-only
@@ -639,9 +679,11 @@ class PointTimeseriesGetCachedTestCase(SetupTestRastersMixin, TestCase):
 
         # Try again—it should raise exception
         with self.assertRaises(PermissionError):
-            hspatial.PointTimeseries(self.point, prefix=self.prefix).get_cached(
-                self.dest
-            )
+            hspatial.PointTimeseries(
+                self.point,
+                prefix=self.prefix,
+                default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
+            ).get_cached(self.dest)
 
     def _setup_additional_raster(self):
         filename = os.path.join(self.tempdir, "test-2014-11-24-16-1.tif")
@@ -656,45 +698,55 @@ class PointTimeseriesGetCachedTestCase(SetupTestRastersMixin, TestCase):
     def test_start_date(self):
         start_date = dt.datetime(2014, 11, 22, 16, 1)
         result = hspatial.PointTimeseries(
-            self.point, prefix=self.prefix, start_date=start_date
+            self.point,
+            prefix=self.prefix,
+            start_date=start_date,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
         ).get_cached(self.dest)
-        self.assertEqual(result.data.index[0], start_date.replace(tzinfo=dt.UTC))
+        self.assertEqual(result.data.index[0], start_date.replace(tzinfo=UTC_PLUS_2))
 
     def test_end_date(self):
         end_date = dt.datetime(2014, 11, 22, 16, 1)
         result = hspatial.PointTimeseries(
-            self.point, prefix=self.prefix, end_date=end_date
+            self.point,
+            prefix=self.prefix,
+            end_date=end_date,
+            default_time=dt.time(0, 0, tzinfo=UTC_PLUS_2),
         ).get_cached(self.dest)
-        self.assertEqual(result.data.index[-1], end_date.replace(tzinfo=dt.UTC))
+        self.assertEqual(result.data.index[-1], end_date.replace(tzinfo=UTC_PLUS_2))
 
 
 class FilenameWithDateFormatTestCase(TestCase):
     def test_with_given_datetime_format(self):
-        format = hspatial.FilenameWithDateFormat("myprefix", "%d-%m-%Y-%H-%M")
+        format = hspatial.FilenameWithDateFormat(
+            "myprefix", date_fmt="%d-%m-%Y-%H-%M", tzinfo=UTC_PLUS_2
+        )
         self.assertEqual(
             format.get_date("myprefix-4-8-2019-10-41.tif"),
-            dt.datetime(2019, 8, 4, 10, 41, tzinfo=dt.UTC),
+            dt.datetime(2019, 8, 4, 10, 41, tzinfo=UTC_PLUS_2),
         )
 
     def test_with_given_date_format(self):
-        format = hspatial.FilenameWithDateFormat("myprefix", "%d-%m-%Y")
+        format = hspatial.FilenameWithDateFormat(
+            "myprefix", date_fmt="%d-%m-%Y", tzinfo=UTC_PLUS_2
+        )
         self.assertEqual(
             format.get_date("myprefix-4-8-2019.tif"),
-            dt.datetime(2019, 8, 4, tzinfo=dt.UTC),
+            dt.datetime(2019, 8, 4, tzinfo=UTC_PLUS_2),
         )
 
     def test_datetime_with_auto_format(self):
-        format = hspatial.FilenameWithDateFormat("myprefix")
+        format = hspatial.FilenameWithDateFormat("myprefix", tzinfo=UTC_PLUS_2)
         self.assertEqual(
             format.get_date("myprefix-2019-8-4-10-41.tif"),
-            dt.datetime(2019, 8, 4, 10, 41, tzinfo=dt.UTC),
+            dt.datetime(2019, 8, 4, 10, 41, tzinfo=UTC_PLUS_2),
         )
 
     def test_date_with_auto_format(self):
-        format = hspatial.FilenameWithDateFormat("myprefix")
+        format = hspatial.FilenameWithDateFormat("myprefix", tzinfo=UTC_PLUS_2)
         self.assertEqual(
             format.get_date("myprefix-2019-8-4.tif"),
-            dt.datetime(2019, 8, 4, tzinfo=dt.UTC),
+            dt.datetime(2019, 8, 4, tzinfo=UTC_PLUS_2),
         )
 
 
