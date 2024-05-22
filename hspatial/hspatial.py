@@ -264,7 +264,10 @@ def extract_point_from_raster(point, data_source, band_number=1):
     pppoint = PassepartoutPoint(point)
 
     # Convert point co-ordinates so that they are in same projection as raster
-    target_srs_wkt = data_source.GetProjection()
+    try:
+        target_srs_wkt = data_source.GetProjection()
+    except AttributeError:
+        target_srs_wkt = data_source.srs.wkt
     try:
         pppoint = pppoint.transform_to(target_srs_wkt)
     except GDALException:
@@ -274,16 +277,29 @@ def extract_point_from_raster(point, data_source, band_number=1):
         raise RuntimeError("Couldn't convert point to raster's CRS")
 
     # Convert geographic co-ordinates to pixel co-ordinates
-    forward_transform = Affine.from_gdal(*data_source.GetGeoTransform())
+    try:
+        forward_transform = Affine.from_gdal(*data_source.GetGeoTransform())
+    except AttributeError:
+        forward_transform = Affine.from_gdal(*data_source.geotransform)
     reverse_transform = ~forward_transform
     px, py = reverse_transform * (pppoint.x, pppoint.y)
     px, py = int(px), int(py)
 
     # Extract pixel value
-    band = data_source.GetRasterBand(band_number)
-    structval = band.ReadRaster(px, py, 1, 1, buf_type=gdal.GDT_Float32)
+    try:
+        band = data_source.GetRasterBand(band_number)
+    except AttributeError:
+        band = data_source.bands[band_number - 1]
+    try:
+        structval = band.ReadRaster(px, py, 1, 1, buf_type=gdal.GDT_Float32)
+    except AttributeError:
+        structval = band.data(offset=(px, py), size=(1, 1))
     result = struct.unpack("f", structval)[0]
-    if result == band.GetNoDataValue():
+    try:
+        nodata_value = band.GetNoDataValue()
+    except AttributeError:
+        nodata_value = band.nodata_value
+    if result == nodata_value:
         result = float("nan")
     return result
 

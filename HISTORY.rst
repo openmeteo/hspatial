@@ -2,6 +2,11 @@
 History
 =======
 
+4.1.0 (2024-05-22)
+==================
+
+- extract_point_from_raster() now also accepts a GDALRaster object.
+
 4.0.1 (2024-04-22)
 ==================
 

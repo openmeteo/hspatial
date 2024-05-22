@@ -97,9 +97,11 @@ API
 
 .. function:: hspatial.extract_point_from_raster(point, data_source, band_number=1)
 
-   *data_source* is a GDAL raster. *point* is either an OGR point, or a
-   GeoDjango point object.  The function returns the value of the pixel
-   of the specified band of *data_source* in which the *point* falls.
+   *data_source* is either a GDAL data source with a raster or a
+   GeoDjango :class:`GDALRaster` object. *point* is either an OGR point,
+   or a GeoDjango point object.  The function returns the value of the
+   pixel of the specified band of *data_source* in which the *point*
+   falls.
 
    *point* and *data_source* need not be in the same reference system,
    but they must both have an appropriate spatial reference defined.

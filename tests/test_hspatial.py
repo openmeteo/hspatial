@@ -10,6 +10,7 @@ from unittest import TestCase
 
 import numpy as np
 import pandas as pd
+from django.contrib.gis.gdal import GDALRaster
 from django.contrib.gis.geos import Point as GeoDjangoPoint
 from htimeseries import HTimeseries, TzinfoFromString
 from osgeo import gdal, ogr, osr
@@ -392,6 +393,15 @@ class ExtractPointFromRasterTestCase(TestCase):
         point = hspatial.coordinates2point(22.01001, 37.98001)
         self.assertAlmostEqual(
             hspatial.extract_point_from_raster(point, self.fp), 2.2, places=2
+        )
+
+    def test_middle_point_with_GDALRaster(self):
+        # Same as test_middle_point(), but uses GDALRaster object instead of a gdal
+        # data source.
+        point = hspatial.coordinates2point(22.01001, 37.98001)
+        gdal_raster_object = GDALRaster(self.filename)
+        self.assertAlmostEqual(
+            hspatial.extract_point_from_raster(point, gdal_raster_object), 2.2, places=2
         )
 
     def test_bottom_left_point(self):
